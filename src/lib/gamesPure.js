@@ -399,7 +399,16 @@ export function applyTruco(st, p, a) {
 }
 // O Firestore não aceita array dentro de array: a mão de cada jogador vira {0: [...], 1: [...]}
 export const trucoPack = (st) => ({ ...st, hand: { ...st.hand, cards: { 0: st.hand.cards[0], 1: st.hand.cards[1] } } });
-export const trucoUnpack = (st) => ({ ...st, hand: { ...st.hand, cards: [st.hand.cards[0], st.hand.cards[1]] } });
+// Conserta mesas que ficaram com a vez errada (acontece com versões antigas do jogo abertas em outra aba):
+// se já jogou a carta desta vaza e o adversário ainda não jogou, a vez é do adversário.
+export function trucoFixTurn(st) {
+  const h = st.hand;
+  if (st.over || h.pending) return st;
+  const t = h.turn;
+  if (h.cur[t] && !h.cur[1 - t] && h.cards[1 - t].length > 0) return { ...st, hand: { ...h, turn: 1 - t } };
+  return st;
+}
+export const trucoUnpack = (st) => trucoFixTurn({ ...st, hand: { ...st.hand, cards: [st.hand.cards[0], st.hand.cards[1]] } });
 // idem para a cartela do bingo (5x5 vira uma lista de 25, linha por linha)
 export const bingoFlat = (card) => card.flat();
 export const bingoGrid = (flat) => Array.from({ length: 5 }, (_, r) => flat.slice(r * 5, r * 5 + 5));
