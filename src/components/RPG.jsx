@@ -640,3 +640,62 @@ export function EcoRanking() {
     </div>
   );
 }
+
+/* ---------------- um item numa loja física (cartão ao tocar na prateleira) ---------------- */
+export function ItemOffer({ wallet, item, onMsg }) {
+  const { user, profile } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const cosmetic = isCosmetic(item);
+  const have = cosmetic && !!wallet.cosmetics?.[item.id];
+  const on = have && wallet.equipped?.[item.type] === item.id;
+  const lock = have ? "" : lockReason(item, wallet);
+  const price = priceOf(item, wallet);
+  const consumable = ["food", "fun", "care"].includes(item.type);
+  const poor = (wallet.balance || 0) < price && !(item.type === "house" || item.type === "vehicle");
+  async function run(fn) {
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      onMsg(e.message, true);
+    }
+    setBusy(false);
+  }
+  const buy = (use) =>
+    run(async () => {
+      const r = await buyItem(user.uid, item.id, { use });
+      const extra = r.refund ? ` (vendeu ${r.old.name} por ${coins(r.refund)})` : "";
+      onMsg(`${item.icon} ${r.used ? `${item.name}: ${effectText(r.effect)}` : `Comprou ${item.name}`}${extra}`);
+      if (["course", "house", "vehicle", "pet", ...COSMETIC_TYPES].includes(item.type) || r.price >= 400)
+        post(user, profile, { type: "shop", bet: 0, payout: -r.price, text: `comprou ${item.icon} ${item.name}`, detail: `${item.icon} ${item.name} por ${coins(r.price)}${extra}` });
+      announceLevelUp(user, profile, r.levelUp);
+    });
+  return (
+    <div className="offer">
+      <span className="offer-ico">{cosmetic ? <CosmeticPreview item={item} wallet={wallet} /> : item.icon}</span>
+      <div className="offer-info">
+        <b>{item.name}</b>
+        <span>{itemText(item)}</span>
+        <em>{have ? "Seu" : coins(price)}{!have && price !== item.price && <s>{item.price.toLocaleString("pt-BR")}</s>}</em>
+      </div>
+      <div className="offer-act">
+        {have ? (
+          on ? (
+            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(async () => { await unequipCosmetic(user.uid, item.type); onMsg(`${item.icon} ${item.name} guardado.`); })}>✓ Equipado</button>
+          ) : (
+            <button type="button" className="btn btn-cash" disabled={busy} onClick={() => run(async () => { await equipCosmetic(user.uid, item.id); onMsg(`${item.icon} ${item.name} equipado.`); })}>Equipar</button>
+          )
+        ) : lock ? (
+          <span className="rpg-lock">🔒 {lock}</span>
+        ) : consumable ? (
+          <>
+            <button type="button" className="btn btn-cash" disabled={busy || poor} onClick={() => buy(true)}>{item.type === "food" ? "Comer" : item.type === "care" ? "Usar" : "Ir"}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || poor} onClick={() => buy(false)} title="Guardar na mochila">🎒</button>
+          </>
+        ) : (
+          <button type="button" className="btn btn-gradient" disabled={busy || poor} onClick={() => buy(false)}>Comprar</button>
+        )}
+      </div>
+    </div>
+  );
+}

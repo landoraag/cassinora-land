@@ -267,3 +267,31 @@
 
 .cy-ax { animation: cy-ax linear infinite; } @keyframes cy-ax { from { transform: translate(-30px,-15px); } to { transform: translate(750px,375px); } }
 .cy-by { animation: cy-by linear infinite; } @keyframes cy-by { from { transform: translate(18px,-9px); } to { transform: translate(-450px,225px); } }
+
+/* cidade grande (vista de cima) */
+.city-stage { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.12); background: #2a8fc4; }
+.city-stage .city-map { aspect-ratio: 16 / 9; width: 100%; height: auto; border: 0; border-radius: 0; touch-action: none; }
+.city-night { position: absolute; inset: 0; background: #0b1038; pointer-events: none; transition: opacity 1s; mix-blend-mode: multiply; }
+.city-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.city-zoom button { width: 38px; height: 38px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(15,20,45,.78); color: #fff; font-size: 1.1rem; cursor: pointer; }
+.city-zoom button:hover { background: rgba(60,70,130,.9); }
+.city-zoom small { color: #fff; text-shadow: 0 1px 3px #000; font-weight: 700; }
+.cm-win { fill: #8fd0e8; stroke: rgba(10,40,60,.45); stroke-width: .6; }
+.is-night .cm-win { fill: #ffd86b; }
+.cm-lamp { fill: #dde3ee; } .is-night .cm-lamp { fill: #fff3b0; filter: drop-shadow(0 0 6px #fff3b0); }
+.cm-marker { animation: cm-bob 1.6s ease-in-out infinite alternate; } @keyframes cm-bob { to { transform: translateY(-4px); } }
+.cm-h { animation: cm-h linear infinite; } @keyframes cm-h { from { transform: translateX(0); } to { transform: translateX(var(--d)); } }
+@keyframes cm-v { from { transform: translateY(0); } to { transform: translateY(var(--dy)); } }
+.city-hit { cursor: pointer; }
+.city-hit:hover { filter: brightness(1.12); }
+
+/* loja física */
+.loja-map { width: 100%; height: auto; display: block; border-radius: 16px; border: 1px solid rgba(255,255,255,.12); touch-action: manipulation; cursor: pointer; user-select: none; background: #333; }
+.offer-wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.offer { display: flex; gap: 12px; align-items: center; flex: 1; min-width: 260px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); }
+.offer-ico { font-size: 2.4rem; }
+.offer-info { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+.offer-info span { font-size: .82rem; opacity: .8; }
+.offer-info em { font-style: normal; font-weight: 800; color: #ffd34d; }
+.offer-info s { margin-left: 6px; opacity: .6; font-weight: 400; }
+.offer-act { display: flex; gap: 6px; }

@@ -702,6 +702,9 @@ export const HOME_ACTIONS = {
   aquarium: { icon: "🐠", say: "olhou o aquário", d: { mood: 3 } },
   shelf: { icon: "📚", say: "leu um livro", d: { mood: 2 } },
   plant: { icon: "🪴", say: "regou a planta", d: { mood: 1 } },
+  bath: { icon: "🛁", say: "tomou um banho", d: { mood: 3, health: 3 } },
+  desk: { icon: "💻", say: "usou o computador", d: { mood: 2 } },
+  table: { icon: "🍽️", say: "comeu na mesa", d: { energy: 3, mood: 1 } },
   fridge: { icon: "🍪", say: "pegou um lanche", d: { energy: 4, mood: 1 } },
 };
 export async function interact(uid, kind) {

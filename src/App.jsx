@@ -10,6 +10,7 @@ import RankingPage from "./pages/Ranking";
 import Perfil from "./pages/Perfil";
 import Cidade from "./pages/Cidade";
 import Casa from "./pages/Casa";
+import Loja from "./pages/Loja";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="perfil" element={<Perfil />} />
         <Route path="cidade" element={<Cidade />} />
         <Route path="casa/:uid" element={<Casa />} />
+        <Route path="loja/:shopId" element={<Loja />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
