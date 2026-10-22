@@ -18,7 +18,7 @@ export const OUTFITS = { tee: "Camiseta", hoodie: "Moletom", jacket: "Jaqueta", 
 // roupas de carreira: só quem chegou no nível da carreira pode usar (checado em lib/rpg.js)
 export const OUTFIT_REQ = { coat: { career: "saude", level: 2 }, suit: { career: "negocios", level: 1 }, apron: { career: "gastronomia", level: 1 }, hoodie: null };
 export const ACC_REQ = { cap: { career: "transporte", level: 1 }, crown: { fame: 300 } };
-export const ACCESSORIES = { none: "Nada", glasses: "Óculos", shades: "Óculos escuros", cap: "Boné", hat: "Cartola", crown: "Coroa", phones: "Fone", bandana: "Bandana", headband: "Bandana ninja", mask: "Máscara" };
+export const ACCESSORIES = { none: "Nada", glasses: "Óculos", shades: "Óculos escuros", cap: "Boné", hat: "Cartola", crown: "Coroa", phones: "Fone", bandana: "Bandana", headband: "Bandana ninja", mask: "Máscara", beret: "Boina" };
 export const EXTRAS = { none: "Nenhum", earring: "Brinco", necklace: "Colar", both: "Brinco e colar" };
 
 const pick = (list, i) => list[((i % list.length) + list.length) % list.length];
