@@ -692,3 +692,24 @@ export async function rest(uid) {
     return d;
   });
 }
+
+// Interações dentro de uma casa (qualquer visitante pode usar os móveis; o efeito vai para quem usa).
+export const HOME_ACTIONS = {
+  sofa: { icon: "🛋️", say: "sentou no sofá", d: { mood: 3, energy: 1 } },
+  tv: { icon: "📺", say: "está vendo TV", d: { mood: 4 } },
+  piano: { icon: "🎹", say: "tocou piano", d: { mood: 5 } },
+  fireplace: { icon: "🔥", say: "se aqueceu na lareira", d: { mood: 2, health: 2 } },
+  aquarium: { icon: "🐠", say: "olhou o aquário", d: { mood: 3 } },
+  shelf: { icon: "📚", say: "leu um livro", d: { mood: 2 } },
+  plant: { icon: "🪴", say: "regou a planta", d: { mood: 1 } },
+  fridge: { icon: "🍪", say: "pegou um lanche", d: { energy: 4, mood: 1 } },
+};
+export async function interact(uid, kind) {
+  const a = HOME_ACTIONS[kind];
+  if (!a) throw new Error("Nada para fazer aqui.");
+  return runTransaction(db, async (tx) => {
+    const w = await readW(tx, uid);
+    tx.update(walletRef(uid), statsUpdate(w, Date.now(), a.d));
+    return a.d;
+  });
+}

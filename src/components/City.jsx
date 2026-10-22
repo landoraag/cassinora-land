@@ -5,7 +5,7 @@ import { db } from "../lib/firebase";
 import { useAuth } from "../context/AuthContext";
 import { useCollection } from "../lib/useCollection";
 import { claimPlot, routeTo, snapToWalkable, PLOTS } from "../lib/city";
-import Scene, { VIEW } from "./CityArt";
+import Scene, { VIEW, iso, unIso } from "./CityIso";
 import { DollShape } from "./Doll";
 import { dollOf } from "../lib/doll";
 import { ITEMS, hasPersona, liveStats } from "../lib/rpg";
@@ -15,7 +15,7 @@ import { EcoModal } from "./Economy";
 import { Hearts, Meter } from "./RPG";
 import { MAX_HEALTH } from "../lib/rpg";
 
-const SCALE = 0.37; // tamanho do boneco no mapa
+const SCALE = 0.44; // tamanho do boneco no mapa
 let lastPos = [600, 340]; // lembra onde você parou ao entrar numa casa e voltar
 
 const nightLevel = (d = new Date()) => {
@@ -81,8 +81,9 @@ export default function City() {
     const s = st.current;
     const g = playerRef.current;
     if (!g) return;
-    g.setAttribute("transform", `translate(${s.pos[0].toFixed(1)} ${s.pos[1].toFixed(1)})`);
-    dollRef.current?.setAttribute("transform", `scale(${s.dir * SCALE} ${SCALE}) translate(-60 -166)`);
+    const [sx, sy] = iso(s.pos[0], s.pos[1]);
+    g.setAttribute("transform", `translate(${sx.toFixed(1)} ${sy.toFixed(1)})`);
+    dollRef.current?.setAttribute("transform", `scale(${s.dir * SCALE} ${SCALE}) translate(-60 -153)`);
     dollRef.current?.classList.toggle("doll-walk", s.moving);
   }
 
@@ -173,7 +174,7 @@ export default function City() {
 
   function svgPoint(e) {
     const r = svgRef.current.getBoundingClientRect();
-    return [VIEW.x + ((e.clientX - r.left) / r.width) * VIEW.w, VIEW.y + ((e.clientY - r.top) / r.height) * VIEW.h];
+    return unIso(VIEW.x + ((e.clientX - r.left) / r.width) * VIEW.w, VIEW.y + ((e.clientY - r.top) / r.height) * VIEW.h);
   }
   const onBg = (e) => walk(svgPoint(e));
 
@@ -223,11 +224,11 @@ export default function City() {
       <svg ref={svgRef} className="city-map" viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} onPointerDown={(e) => !e.defaultPrevented && onBg(e)} role="img" aria-label="Mapa da cidade">
         <Scene owners={owners} night={night} onBuilding={(b) => onBuilding(b)} onPlot={onPlot} />
                 {others.map((p) => (
-          <g key={p.id} style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: "transform 2.5s linear" }} pointerEvents="none">
-            <g transform={`scale(${SCALE}) translate(-60 -166)`}>
+          <g key={p.id} style={{ transform: `translate(${iso(p.x, p.y)[0]}px, ${iso(p.x, p.y)[1]}px)`, transition: "transform 2.5s linear" }} pointerEvents="none">
+            <g transform={`scale(${SCALE}) translate(-60 -153)`}>
               <DollShape cfg={p.wallet ? dollOf(p.wallet) : undefined} mood={p.wallet ? liveStats(p.wallet).mood : 60} />
             </g>
-            <text y="-78" fontSize="11" textAnchor="middle" fill="#fff" stroke="rgba(0,0,0,0.7)" strokeWidth="3" paintOrder="stroke">{p.nickname}</text>
+            <text y="-72" fontSize="11" textAnchor="middle" fill="#fff" stroke="rgba(0,0,0,0.7)" strokeWidth="3" paintOrder="stroke">{p.nickname}</text>
           </g>
         ))}
         <g ref={playerRef} pointerEvents="none">
@@ -235,7 +236,7 @@ export default function City() {
           {veh && <text x="-30" y="-2" fontSize="22" textAnchor="middle">{veh.icon}</text>}
           {pet && <text x="30" y="-2" fontSize="16" textAnchor="middle">{pet.icon}</text>}
           <g ref={dollRef}>{doll && <DollShape cfg={doll} mood={stats.mood} energy={stats.energy} health={stats.health} />}</g>
-          <text y="-80" fontSize="12" fontWeight="700" textAnchor="middle" fill="#fff" stroke="rgba(0,0,0,0.75)" strokeWidth="3" paintOrder="stroke">
+          <text y="-74" fontSize="12" fontWeight="700" textAnchor="middle" fill="#fff" stroke="rgba(0,0,0,0.75)" strokeWidth="3" paintOrder="stroke">
             {me?.persona?.name || "Você"}
           </text>
         </g>

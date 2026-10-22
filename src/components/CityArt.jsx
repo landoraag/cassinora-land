@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { createContext, memo, useContext } from "react";
 import { BUILDINGS, MAP_H, MAP_W, PLOTS } from "../lib/city";
 import { OUTFIT_COLORS, dollOf, shade } from "../lib/doll";
 import { ITEMS } from "../lib/rpg";
@@ -11,15 +11,64 @@ export const VIEW = { x: -90, y: -80, w: 1380, h: 880 };
 const LINE = "rgba(15,22,45,.5)";
 
 /* ---------- peças básicas ---------- */
-function Box({ x, y, w, h, d = 14, c, side, top, shadow = true }) {
-  const sc = side || shade(c, -0.22);
-  const tc = top || shade(c, 0.24);
+const NightCtx = createContext(0);
+export const ShadeDefs = () => (
+  <>
+    <linearGradient id="cy-shade-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#fff" stopOpacity=".2" />
+      <stop offset=".35" stopColor="#fff" stopOpacity="0" />
+      <stop offset="1" stopColor="#000" stopOpacity=".26" />
+    </linearGradient>
+    <linearGradient id="cy-shade-side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stopColor="#000" stopOpacity=".06" />
+      <stop offset="1" stopColor="#000" stopOpacity=".3" />
+    </linearGradient>
+  </>
+);
+export function Box({ x, y, w, h, d = 14, c, side, top, shadow = true }) {
+  const night = useContext(NightCtx);
+  const lit = night > 0.2;
+  const sc = side || shade(c, -0.26);
+  const tc = top || shade(c, 0.26);
+  const floors = Math.max(1, Math.floor(h / 26));
+  const fh = (h - 12) / floors;
+  const big = d >= 10 && h >= 60;
   return (
     <g>
-      {shadow && <polygon points={`${x + w},${y + h} ${x + w + d},${y + h - d} ${x + w + d + 20},${y + h - d + 9} ${x + w + 20},${y + h + 9}`} fill="rgba(0,0,0,.22)" />}
+      {shadow && <polygon points={`${x + w},${y + h} ${x + w + d},${y + h - d} ${x + w + d + 22},${y + h - d + 10} ${x + w + 22},${y + h + 10}`} fill="rgba(0,0,0,.24)" />}
       <polygon points={`${x + w},${y} ${x + w + d},${y - d} ${x + w + d},${y + h - d} ${x + w},${y + h}`} fill={sc} stroke={LINE} strokeWidth="1" strokeLinejoin="round" />
+      <polygon points={`${x + w},${y} ${x + w + d},${y - d} ${x + w + d},${y + h - d} ${x + w},${y + h}`} fill="url(#cy-shade-side)" />
+      {big && (
+        <g transform={`matrix(1 -1 0 1 ${x + w} ${y})`}>
+          {Array.from({ length: floors }, (_, r) => (
+            <rect key={r} x={d * 0.22} y={8 + r * fh} width={d * 0.56} height={fh - 8} rx="1.2" fill={lit ? "url(#cy-gl-lit)" : "#6a98cc"} stroke="rgba(10,20,45,.5)" strokeWidth=".8" />
+          ))}
+        </g>
+      )}
       <rect x={x} y={y} width={w} height={h} fill={c} stroke={LINE} strokeWidth="1" />
+      <rect x={x} y={y} width={w} height={h} fill="url(#cy-shade-front)" />
+      <path d={`M${x + 1.2} ${y + h} V${y + 1.2} H${x + w}`} stroke="rgba(255,255,255,.4)" strokeWidth="1.6" fill="none" />
       <polygon points={`${x},${y} ${x + d},${y - d} ${x + w + d},${y - d} ${x + w},${y}`} fill={tc} stroke={LINE} strokeWidth="1" strokeLinejoin="round" />
+      <polygon points={`${x + 4},${y - 2} ${x + d - 1},${y - d + 3} ${x + w + d - 4},${y - d + 3} ${x + w - 4},${y - 2}`} fill={shade(tc, -0.1)} stroke="rgba(0,0,0,.15)" strokeWidth=".8" />
+      {big && w >= 80 && (
+        <g>
+          <rect x={x + w * 0.2 + d * 0.5} y={y - d * 0.8} width="13" height="6" rx="1.5" fill="#e4e8ee" stroke={LINE} strokeWidth=".8" />
+          <circle cx={x + w * 0.2 + d * 0.5 + 6.5} cy={y - d * 0.8 + 3} r="2" fill="#94a3b8" />
+          <rect x={x + w * 0.62 + d * 0.5} y={y - d * 0.75} width="10" height="5" rx="1.5" fill="#e4e8ee" stroke={LINE} strokeWidth=".8" />
+        </g>
+      )}
+    </g>
+  );
+}
+
+function GableRoof({ x, y, w, rh, d = 12, c, wall }) {
+  return (
+    <g>
+      <polygon points={`${x - 5},${y} ${x + w / 2},${y - rh} ${x + w / 2 + d},${y - rh - d} ${x - 5 + d},${y - d}`} fill={shade(c, 0.18)} stroke={LINE} strokeLinejoin="round" />
+      <polygon points={`${x + w / 2},${y - rh} ${x + w + 5},${y} ${x + w + 5 + d},${y - d} ${x + w / 2 + d},${y - rh - d}`} fill={shade(c, -0.22)} stroke={LINE} strokeLinejoin="round" />
+      <polygon points={`${x + w / 2},${y - rh} ${x + w + 5},${y} ${x + w + 5 + d},${y - d} ${x + w / 2 + d},${y - rh - d}`} fill="url(#cy-shade-side)" />
+      <polygon points={`${x - 5},${y} ${x + w / 2},${y - rh} ${x + w + 5},${y}`} fill={wall} stroke={c} strokeWidth="3.4" strokeLinejoin="round" />
+      <path d={`M${x + 6} ${y - 2} L${x + w / 2} ${y - rh + 8} L${x + w - 6} ${y - 2}`} fill="none" stroke="rgba(0,0,0,.12)" />
     </g>
   );
 }
@@ -432,9 +481,8 @@ function HouseBody({ tier, wall, roof, lit }) {
     return (
       <g>
         <Box x={12} y={-58} w={80} h={58} d={12} c={wall} />
-        <polygon points="4,-58 52,-96 100,-58" fill={roof} stroke={LINE} />
-        <polygon points="100,-58 52,-96 64,-108 112,-70" fill={shade(roof, -0.2)} stroke={LINE} opacity=".0" />
-        <rect x="74" y="-100" width="10" height="26" fill="#8b5a3c" stroke={LINE} />
+        <rect x="78" y="-98" width="10" height="26" fill="#8b5a3c" stroke={LINE} />
+        <GableRoof x={12} y={-58} w={80} rh={38} d={12} c={roof} wall={shade(wall, 0.08)} />
         <circle cx="52" cy="-72" r="6" fill={lit ? "url(#cy-gl-lit)" : "url(#cy-gl)"} stroke={LINE} />
         <Glass x={20} y={-46} w={17} h={16} lit={lit} />
         <Glass x={68} y={-46} w={17} h={16} lit={lit} />
@@ -469,8 +517,8 @@ function HouseBody({ tier, wall, roof, lit }) {
     <g>
       <Box x={6} y={-60} w={98} h={60} d={12} c={wall} />
       <Box x={36} y={-96} w={40} h={38} d={10} c={shade(wall, 0.04)} shadow={false} />
-      <polygon points="0,-60 55,-84 110,-60" fill={roof} stroke={LINE} />
-      <polygon points="30,-96 56,-118 82,-96" fill={roof} stroke={LINE} />
+      <GableRoof x={6} y={-60} w={98} rh={22} d={12} c={roof} wall={shade(wall, 0.08)} />
+      <GableRoof x={36} y={-96} w={40} rh={20} d={10} c={roof} wall={shade(wall, 0.08)} />
       <path d="M56 -118 V-134" stroke="#555" strokeWidth="1.6" />
       <path d="M56 -134 l15 5 l-15 5Z" fill="#facc15" stroke="#ca8a04" className="cy-flag" />
       <Glass x={12} y={-50} w={14} h={18} lit={lit} />
@@ -680,6 +728,7 @@ function Sea({ night }) {
 
 const Scene = memo(function Scene({ owners, night, onBuilding, onPlot }) {
   return (
+    <NightCtx.Provider value={night}>
     <g>
       <defs>
         <linearGradient id="cy-sea" x1="0" y1="0" x2="1" y2="1">
@@ -703,6 +752,7 @@ const Scene = memo(function Scene({ owners, night, onBuilding, onPlot }) {
           <stop offset="0" stopColor="#8fb8ff" />
           <stop offset="1" stopColor="#3b4fb8" />
         </linearGradient>
+        <ShadeDefs />
         <radialGradient id="cy-glow">
           <stop offset="0" stopColor="#fff3b0" stopOpacity=".55" />
           <stop offset="1" stopColor="#fff3b0" stopOpacity="0" />
@@ -780,6 +830,7 @@ const Scene = memo(function Scene({ owners, night, onBuilding, onPlot }) {
       {BUILDINGS.map((b) => <Building key={b.id} b={b} night={night} onPick={onBuilding} />)}
       <rect x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} fill="#0b1030" opacity={night} pointerEvents="none" />
     </g>
+    </NightCtx.Provider>
   );
 });
 

@@ -264,3 +264,6 @@
 .cy-flag { transform-box: fill-box; transform-origin: left center; animation: cy-flag 1.6s ease-in-out infinite alternate; } @keyframes cy-flag { to { transform: skewY(-8deg) scaleX(.9); } }
 .cy-belt { animation: cy-belt 1s linear infinite; } @keyframes cy-belt { to { stroke-dashoffset: -22; } }
 @media (prefers-reduced-motion: reduce) { .cy-h, .cy-v, .cy-smoke, .cy-blink, .cy-wave, .cy-bob, .cy-spin, .cy-flag, .cy-belt { animation: none; } }
+
+.cy-ax { animation: cy-ax linear infinite; } @keyframes cy-ax { from { transform: translate(-30px,-15px); } to { transform: translate(750px,375px); } }
+.cy-by { animation: cy-by linear infinite; } @keyframes cy-by { from { transform: translate(18px,-9px); } to { transform: translate(-450px,225px); } }

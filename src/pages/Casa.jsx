@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { useOnline } from "../lib/presence";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCollection } from "../lib/useCollection";
 import { useWallet } from "../components/Casino";
 import { DollShape } from "../components/Doll";
-import { ITEMS, decorCount, liveStats, rest, restLeft } from "../lib/rpg";
+import { HOME_ACTIONS, ITEMS, decorCount, interact, liveStats, rest, restLeft } from "../lib/rpg";
 import { dollOf, shade } from "../lib/doll";
 import { useNow } from "../components/RPG";
 
@@ -72,25 +75,119 @@ const SLOTS = {
   ),
 };
 
+const SPOTS = { shelf: [115, 428], fireplace: [255, 428], piano: [375, 432], aquarium: [495, 428], tv: [605, 432], sofa: [175, 432], plant: [738, 428] };
+const FRIDGE = [772, 428];
+const EMOTES = ["👋", "😂", "❤️", "👏", "💃", "😴"];
+const X0 = 40, X1 = 760, Y0 = 412, Y1 = 466;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function Bubble({ text, y = -86 }) {
+  const w = Math.min(180, 16 + text.length * 6.6);
+  return (
+    <g transform={`translate(0 ${y})`}>
+      <rect x={-w / 2} y="-18" width={w} height="22" rx="10" fill="#fff" stroke="#333" strokeWidth="1.5" />
+      <path d="M-5 4 L0 11 L5 4Z" fill="#fff" stroke="#333" strokeWidth="1.5" />
+      <rect x="-6" y="2" width="12" height="3" fill="#fff" />
+      <text y="-3" fontSize="12" textAnchor="middle" fill="#111" fontWeight="600">{text.slice(0, 26)}</text>
+    </g>
+  );
+}
+
 export default function Casa() {
   const { uid } = useParams();
   const { user } = useAuth();
   const me = useWallet();
   const navigate = useNavigate();
   const { data: wallets } = useCollection("wallets");
+  const online = useOnline();
   const now = useNow(1000);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pos, setPos] = useState({ x: 400, y: 440, dir: 1, dur: 0 });
+  const [moving, setMoving] = useState(false);
+  const [say, setSay] = useState({ t: "", at: 0 });
+  const [text, setText] = useState("");
+  const svgRef = useRef(null);
+  const posRef = useRef({ x: 400, y: 440 });
+  const walkTimer = useRef(null);
+  const cool = useRef({});
+  const prevX = useRef({});
   const w = uid === user.uid ? me : wallets.find((x) => x.id === uid);
   const house = ITEMS[w?.assets?.house];
   const mine = uid === user.uid;
   const hour = new Date().getHours();
   const night = hour >= 19 || hour < 6;
+  const path = `/casa/${uid}`;
+
   useEffect(() => {
     if (!msg) return undefined;
     const t = setTimeout(() => setMsg(""), 3500);
     return () => clearTimeout(t);
   }, [msg]);
+
+  const publish = (extra = {}) =>
+    setDoc(doc(db, "presence", user.uid), { path, at: Date.now(), hx: Math.round(posRef.current.x), hy: Math.round(posRef.current.y), ...extra }, { merge: true }).catch(() => {});
+
+  useEffect(() => {
+    publish({ say: "", sayAt: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
+
+  function goTo(x, y, then) {
+    const tx = clamp(x, X0, X1);
+    const ty = clamp(y, Y0, Y1);
+    const d = Math.hypot(tx - posRef.current.x, ty - posRef.current.y);
+    const dur = Math.max(0.15, d / 200);
+    const dir = tx >= posRef.current.x ? 1 : -1;
+    posRef.current = { x: tx, y: ty };
+    setPos({ x: tx, y: ty, dir, dur });
+    setMoving(true);
+    publish();
+    clearTimeout(walkTimer.current);
+    walkTimer.current = setTimeout(() => {
+      setMoving(false);
+      then?.();
+    }, dur * 1000);
+  }
+  useEffect(() => () => clearTimeout(walkTimer.current), []);
+
+  function floorClick(e) {
+    const r = svgRef.current.getBoundingClientRect();
+    goTo(((e.clientX - r.left) / r.width) * 800, ((e.clientY - r.top) / r.height) * 480);
+  }
+
+  function talk(t) {
+    const clean = String(t || "").trim().slice(0, 40);
+    if (!clean) return;
+    setSay({ t: clean, at: Date.now() });
+    publish({ say: clean, sayAt: Date.now() });
+  }
+
+  function useFurniture(kind, spot) {
+    goTo(spot[0], spot[1], async () => {
+      const a = HOME_ACTIONS[kind];
+      if (!a) return;
+      const t = Date.now();
+      if (t - (cool.current[kind] || 0) < 45000) {
+        talk(`${a.icon} ${a.say}`);
+        setMsg(`${a.icon} Você curtiu um pouco, mas já se sente bem por agora (volte em instantes para ganhar mais).`);
+        return;
+      }
+      cool.current[kind] = t;
+      talk(`${a.icon} ${a.say}`);
+      try {
+        const d = await interact(user.uid, kind);
+        setMsg(`${a.icon} ${Object.entries(d).map(([k, v]) => `+${v} ${{ energy: "⚡", mood: "😊", health: "❤️‍🩹" }[k] || k}`).join(" · ")}`);
+      } catch (e) {
+        setMsg(e.message);
+      }
+    });
+  }
+
+  const guests = useMemo(
+    () => online.filter((p) => p.id !== user.uid && p.path === path && Number.isFinite(p.hx)),
+    [online, user.uid, path]
+  );
 
   if (!w) return <div className="page"><p className="muted">Procurando a casa…</p></div>;
   if (!house)
@@ -101,14 +198,19 @@ export default function Casa() {
       </div>
     );
   const st = liveStats(w, now);
+  const myW = me || w;
+  const myStats = liveStats(myW, now);
   const left = restLeft(w, now);
   const wall = ["#c9b8a0", "#bcd0e0", "#d8c0d0", "#e3d39a"][house.tier - 1] || "#c9b8a0";
   const decor = Object.keys(w.decor || {}).map((id) => ITEMS[id]).filter(Boolean);
+  const vehicle = ITEMS[w.assets?.vehicle];
+  const pets = Object.keys(w.pets || {}).map((id) => ITEMS[id]).filter(Boolean);
 
   async function sleep() {
     setBusy(true);
     try {
       const d = await rest(user.uid);
+      talk("😴 Zzz…");
       setMsg(`😴 Descansou: +${d.energy} ⚡ · +${d.health} ❤️‍🩹 · +${d.mood} 😊`);
     } catch (e) {
       setMsg(e.message);
@@ -116,40 +218,79 @@ export default function Casa() {
     setBusy(false);
   }
 
-  const vehicle = ITEMS[w.assets?.vehicle];
-  const pets = Object.keys(w.pets || {}).map((id) => ITEMS[id]).filter(Boolean);
+  // entidades ordenadas por profundidade (y)
+  const ents = [
+    { id: "me", x: pos.x, y: pos.y, dir: pos.dir, dur: pos.dur, mv: moving, cfg: dollOf(myW), name: myW.persona?.name || "Você", say: now - say.at < 7000 ? say.t : "", st: myStats, me: true },
+    ...guests.map((p) => {
+      const px = prevX.current[p.id];
+      const dir = px === undefined || p.hx === px ? 1 : p.hx > px ? 1 : -1;
+      prevX.current[p.id] = p.hx;
+      return { id: p.id, x: p.hx, y: clamp(p.hy, Y0, Y1), dir, dur: 1.2, mv: false, cfg: p.wallet ? dollOf(p.wallet) : undefined, name: p.wallet?.persona?.name || p.nickname, say: p.say && Date.now() - (p.sayAt || 0) < 7000 ? p.say : "", st: p.wallet ? liveStats(p.wallet, now) : null };
+    }),
+  ].sort((a, b) => a.y - b.y);
+
+  const spots = decor.filter((d) => SPOTS[d.slot]).map((d) => [d.slot, SPOTS[d.slot], d.id]);
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1>{house.icon} Casa de {w.persona?.name || w.nickname}</h1>
-          <p className="muted">{house.name} · {decorCount(w)} móveis</p>
+          <p className="muted">{house.name} · {decorCount(w)} móveis · 👥 {guests.length + 1} aqui</p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={() => navigate("/cidade")}>‹ Voltar à cidade</button>
       </div>
-      <svg className="city-map" viewBox="0 0 800 480" style={{ cursor: "default" }} role="img" aria-label="Interior da casa">
-        <rect width="800" height="480" fill={wall} />
-        <rect y="400" width="800" height="80" fill="#8a6a45" />
-        <rect y="396" width="800" height="6" fill="#5c4326" />
-        <rect x="600" y="60" width="150" height="120" rx="6" fill={night ? "#0b1030" : "#9bd4ff"} stroke="#f5f5f5" strokeWidth="8" />
-        <path d="M675 60 V180 M600 120 H750" stroke="#f5f5f5" strokeWidth="5" />
-        <text x="700" y="110" fontSize="26" textAnchor="middle">{night ? "🌙" : "☀️"}</text>
+      <svg ref={svgRef} className="city-map" viewBox="0 0 800 480" style={{ cursor: "pointer", background: "#222" }} onPointerDown={floorClick} role="img" aria-label="Interior da casa">
+        <defs>
+          <linearGradient id="hw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={shade(wall, 0.12)} /><stop offset="1" stopColor={shade(wall, -0.12)} /></linearGradient>
+          <linearGradient id="hf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#6f512f" /><stop offset="1" stopColor="#a47a4a" /></linearGradient>
+          <filter id="hs" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="3" dy="5" stdDeviation="3" floodColor="#000" floodOpacity=".35" /></filter>
+        </defs>
+        <rect width="800" height="400" fill="url(#hw)" />
+        {Array.from({ length: 12 }, (_, i) => <rect key={i} x={i * 70} y="0" width="2" height="396" fill="rgba(255,255,255,.07)" />)}
+        <rect y="396" width="800" height="14" fill="#4a3620" />
+        <rect y="410" width="800" height="70" fill="url(#hf)" />
+        {Array.from({ length: 6 }, (_, i) => <path key={i} d={`M0 ${416 + i * 12} H800`} stroke="rgba(0,0,0,.18)" />)}
+        {Array.from({ length: 14 }, (_, i) => <path key={i} d={`M${i * 62 + ((i % 2) * 20)} 410 L${i * 62 - 60 + ((i % 2) * 20)} 480`} stroke="rgba(0,0,0,.12)" />)}
+        <g filter="url(#hs)">
+          <rect x="600" y="60" width="150" height="120" rx="6" fill={night ? "#0b1030" : "#9bd4ff"} stroke="#f5f5f5" strokeWidth="8" />
+          <path d="M675 60 V180 M600 120 H750" stroke="#f5f5f5" strokeWidth="5" />
+          <text x="700" y="110" fontSize="26" textAnchor="middle">{night ? "🌙" : "☀️"}</text>
+        </g>
         {house.tier >= 4 && <text x="400" y="40" fontSize="40" textAnchor="middle">🪔</text>}
-        {SLOTS.rug && w.decor?.["d-tapete"] && SLOTS.rug("rug")}
-        {decor.filter((d) => d.slot !== "rug").map((d) => SLOTS[d.slot]?.(d.id))}
-        {vehicle && <text x="60" y="455" fontSize="34">{vehicle.icon}</text>}
-        {pets.map((p, i) => <text key={p.id} x={160 + i * 44} y="455" fontSize="28">{p.icon}</text>)}
-        <g transform="translate(400 440) scale(0.95)">
-          <g transform="translate(-60 -163)">
-            <DollShape cfg={dollOf(w)} mood={st.mood} energy={st.energy} health={st.health} />
+        {w.decor?.["d-tapete"] && SLOTS.rug("rug")}
+        <g filter="url(#hs)">
+          {decor.filter((d) => d.slot !== "rug").map((d) => SLOTS[d.slot]?.(d.id))}
+          <g>
+            <rect x="750" y="300" width="42" height="100" rx="5" fill="#e5e7eb" stroke="#9ca3af" strokeWidth="2" />
+            <path d="M750 340 H792" stroke="#9ca3af" strokeWidth="2" />
+            <rect x="782" y="316" width="3" height="16" fill="#9ca3af" />
           </g>
         </g>
+        {vehicle && <text x="60" y="470" fontSize="30">{vehicle.icon}</text>}
+        {pets.map((p, i) => <text key={p.id} x={110 + i * 40} y="472" fontSize="24">{p.icon}</text>)}
+        {/* pontos de interação */}
+        {[...spots, ["fridge", FRIDGE, "fridge"]].map(([kind, [sx, sy], key]) => (
+          <g key={"sp-" + key} style={{ cursor: "pointer" }} onPointerDown={(e) => { e.stopPropagation(); useFurniture(kind, [sx, sy]); }}>
+            <circle cx={sx} cy={sy + 6} r="15" fill="rgba(255,255,255,.18)" stroke="#fff" strokeWidth="1.5" strokeDasharray="3 3" className="cy-blink" />
+            <text x={sx} y={sy + 11} fontSize="15" textAnchor="middle">{HOME_ACTIONS[kind].icon}</text>
+          </g>
+        ))}
+        {ents.map((e) => (
+          <g key={e.id} style={{ transform: `translate(${e.x}px, ${e.y}px)`, transition: `transform ${e.dur}s linear` }} pointerEvents="none">
+            <ellipse cx="0" cy="0" rx="22" ry="6" fill="rgba(0,0,0,.32)" />
+            <g transform={`scale(${e.dir * 0.8} 0.8) translate(-60 -153)`} className={e.mv ? "doll-walk" : ""}>
+              <DollShape cfg={e.cfg} mood={e.st?.mood ?? 60} energy={e.st?.energy} health={e.st?.health} />
+            </g>
+            <text y="14" fontSize="11" fontWeight="700" textAnchor="middle" fill="#fff" stroke="rgba(0,0,0,.75)" strokeWidth="3" paintOrder="stroke">{e.name}</text>
+            {e.say && <Bubble text={e.say} />}
+          </g>
+        ))}
         {night && <rect width="800" height="480" fill="#0b1030" opacity="0.28" pointerEvents="none" />}
       </svg>
       <div className="city-hud" style={{ marginTop: 10 }}>
-        <span className="city-chip">⚡ {st.energy}/{st.maxEnergy}</span>
-        <span className="city-chip">😊 {st.mood}</span>
-        <span className="city-chip">❤️‍🩹 {st.health}</span>
+        <span className="city-chip">⚡ {myStats.energy}/{myStats.maxEnergy}</span>
+        <span className="city-chip">😊 {myStats.mood}</span>
+        <span className="city-chip">❤️‍🩹 {myStats.health}</span>
         {mine ? (
           <>
             <button type="button" className="btn btn-gradient" disabled={busy || left > 0} onClick={sleep}>
@@ -161,6 +302,12 @@ export default function Casa() {
           <span className="muted">Você está visitando.</span>
         )}
       </div>
+      <form className="city-hud" style={{ marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); talk(text); setText(""); }}>
+        {EMOTES.map((m) => <button type="button" key={m} className="btn btn-ghost" onClick={() => talk(m)}>{m}</button>)}
+        <input className="input" style={{ flex: 1, minWidth: 140 }} value={text} maxLength={40} placeholder="Diga algo…" onChange={(e) => setText(e.target.value)} />
+        <button className="btn btn-gradient" type="submit">Falar</button>
+      </form>
+      <p className="game-hint">Toque no chão para andar. Toque nos móveis com ✨ para usar (sofá, TV, piano, lareira…). Várias pessoas podem entrar na mesma casa.</p>
       {msg && <p className="game-hint">{msg}</p>}
     </div>
   );
