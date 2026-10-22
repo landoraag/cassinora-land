@@ -10,6 +10,8 @@ import Avatar from "../components/Avatar";
 import { coins } from "../lib/casino";
 import { ECONOMY_TILES, HUES, MULTI_IDS, ROWS, norm, pvpKey } from "../lib/catalog";
 import { useStoredList } from "../lib/prefs";
+import { placeLabel, useOnline } from "../lib/presence";
+import { PersonaAvatar } from "../components/Cosmetics";
 import { isLive, useLiveTables } from "./Mesas";
 
 const byId = Object.fromEntries(GAMES.map((g) => [g.id, g]));
@@ -42,7 +44,7 @@ function EcoCard({ t }) {
   const navigate = useNavigate();
   return (
     <div className="gcard" style={{ "--h": t.hue }}>
-      <button type="button" className="gcard-main" onClick={() => navigate(`/economia?abrir=${t.id}`)}>
+      <button type="button" className="gcard-main" onClick={() => navigate(t.to || `/economia?abrir=${t.id}`)}>
         <div className="gthumb" data-game={"eco-" + t.id}>
           <span className="gthumb-icon">{t.icon}</span>
           <span className="gthumb-play">Abrir</span>
@@ -53,6 +55,23 @@ function EcoCard({ t }) {
         </div>
       </button>
     </div>
+  );
+}
+
+function OnlineRow() {
+  const list = useOnline();
+  const navigate = useNavigate();
+  if (!list.length) return null;
+  return (
+    <Row title={`🟢 Online agora (${list.length})`} sub="Quem está com a página aberta. Toque para ir à cidade." expandable={false}>
+      {list.map((p) => (
+        <button type="button" key={p.id} className="on-chip" onClick={() => navigate("/cidade")} style={{ background: "none", border: 0, color: "inherit", cursor: "pointer" }}>
+          {p.wallet?.persona ? <PersonaAvatar wallet={p.wallet} size="big" /> : <Avatar src={p.wallet?.photoURL} name={p.nickname} size={58} />}
+          <b>{p.nickname}</b>
+          <small>{placeLabel(p.path)}</small>
+        </button>
+      ))}
+    </Row>
   );
 }
 
@@ -196,6 +215,8 @@ export default function Lobby() {
               {favGames.map(card)}
             </Row>
           )}
+
+          <OnlineRow />
 
           <Row title="👥 Mesas abertas" sub="Entre numa mesa ou crie a sua" expandable={false}>
             <div className="gcard create-card">

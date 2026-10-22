@@ -227,3 +227,28 @@
   .daily-btn.ready { animation: none; }
   .gthumb, .gthumb-icon, .gthumb-play { transition: none; }
 }
+
+/* ---------- online ---------- */
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; flex: none; }
+.online-wrap { position: relative; }
+.online-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(34,197,94,0.45); background: rgba(34,197,94,0.1); color: inherit; cursor: pointer; font-size: .85rem; }
+.online-pop { position: absolute; right: 0; top: calc(100% + 8px); width: min(320px, 90vw); max-height: 60vh; overflow: auto; padding: 12px; border-radius: 16px; background: #0f1530; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 12px 40px rgba(0,0,0,0.5); z-index: 60; }
+.online-pop h4 { margin: 0 0 8px; font-size: .9rem; }
+.online-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.online-list li { display: flex; align-items: center; gap: 10px; }
+.online-list li > span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.online-list small { opacity: .7; font-size: .72rem; }
+.online-list li.me b { color: #7aa7ff; }
+.online-strip { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 8px; }
+.on-chip { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 74px; font-size: .75rem; text-align: center; }
+.on-chip small { opacity: .65; font-size: .66rem; }
+
+/* ---------- cidade ---------- */
+.city { position: relative; }
+.city-hud { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.city-meters { display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.city-chip { padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); font-size: .82rem; }
+.city-map { width: 100%; height: auto; display: block; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); touch-action: manipulation; cursor: pointer; background: #3d8a4b; user-select: none; }
+.city-hit { cursor: pointer; }
+.city-hit:hover > rect:first-child { filter: brightness(1.15); }
+.city-help { margin-top: 8px; }

@@ -1,5 +1,7 @@
 import { useCollection } from "../lib/useCollection";
-import { equippedOf, safeEmoji } from "../lib/rpg";
+import { equippedOf, liveStats } from "../lib/rpg";
+import { dollOf } from "../lib/doll";
+import Doll from "./Doll";
 
 // Visual da persona (loja "Visual"): moldura do avatar, tag junto ao nome e cor do nome.
 // Os estilos ficam em styles.css (.fx-frame-*, .fx-tag-*, .fx-name-*).
@@ -13,11 +15,12 @@ export const nameClass = (w) => {
   return c ? ` fx-name-${c.fx}` : "";
 };
 
-// Avatar (emoji) da persona com a moldura equipada.
+// Avatar da persona: o rostinho do boneco (reflete humor, energia e saúde) com a moldura equipada.
 export function PersonaAvatar({ wallet, size = "", title }) {
+  const st = liveStats(wallet);
   return (
     <span className={"rpg-ava" + (size ? ` ${size}` : "") + frameClass(wallet)} title={title}>
-      {safeEmoji(wallet?.persona?.emoji)}
+      <Doll cfg={dollOf(wallet)} mode="portrait" size={64} mood={st.mood} energy={st.energy} health={st.health} />
     </span>
   );
 }
@@ -50,7 +53,7 @@ export function NameWithTag({ uid, name }) {
 
 // Mostra o item da loja como será visto (moldura no avatar, tag, nome colorido).
 export function CosmeticPreview({ item, wallet }) {
-  if (item.type === "frame") return <span className={`rpg-ava sm fx-frame-${item.fx}`}>{safeEmoji(wallet?.persona?.emoji) || "😎"}</span>;
+  if (item.type === "frame") return <span className={`rpg-ava sm fx-frame-${item.fx}`}><Doll cfg={dollOf(wallet)} mode="portrait" size={30} /></span>;
   if (item.type === "tag") return <span className={`rpg-tag fx-tag-${item.fx}`}>{item.label}</span>;
   return <span className={`rpg-name fx-name-${item.fx}`}>{wallet?.persona?.name || "Nome"}</span>;
 }

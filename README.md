@@ -13,6 +13,12 @@ Nasceu do cassino e da economia do [landora-app-dk](https://github.com/landoraag
 
 Todo mundo começa com 💰 22.000.
 
+## Novidades (cidade e persona)
+
+- **Boneco 2D editável** (SVG), com perfil (`/perfil`): apelido, foto e visual. Reflete humor, energia e saúde.
+- **Cidade 2D** (`/cidade`): prédios, terrenos, quem está online andando; casa própria com interior (`/casa/:uid`) e móveis.
+- **Carreiras e trabalhos** por dificuldade, com formações na Faculdade; saúde, vida e fama; animação de vitória/derrota; sons; "online agora".
+
 ## Estrutura
 
 ```

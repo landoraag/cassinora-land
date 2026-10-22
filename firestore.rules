@@ -35,6 +35,12 @@ service cloud.firestore {
       allow write: if signedIn() && request.auth.uid == uid;
     }
 
+    // Quem está online: todo mundo lê, cada um grava só o seu.
+    match /presence/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
     // Feed "Ao vivo": qualquer logado lê e publica; ninguém edita nem apaga.
     match /gameFeed/{id} {
       allow read: if signedIn();

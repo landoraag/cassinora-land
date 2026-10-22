@@ -810,3 +810,84 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue-light)
 @media (max-width: 640px) { .pvp-games { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 .chat-older { align-self: center; margin: 8px auto; font-size: .82rem; flex-shrink: 0; }
+
+/* ---------- boneco 2D ---------- */
+.rpg-ava { overflow: hidden; position: relative; }
+.rpg-ava > svg.doll { width: 100%; height: 100%; display: block; }
+.doll { display: block; flex: none; }
+.doll-walk .legL, .doll-walk .legR, .doll-walk .armL, .doll-walk .armR { transform-box: fill-box; transform-origin: 50% 0; }
+.doll-walk .legL, .doll-walk .armR { animation: doll-swing .5s ease-in-out infinite alternate; }
+.doll-walk .legR, .doll-walk .armL { animation: doll-swing .5s ease-in-out infinite alternate-reverse; }
+@keyframes doll-swing { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+.sheet-doll { background: radial-gradient(circle at 50% 40%, rgba(0,87,255,0.25), transparent 70%); border-radius: 16px; }
+.rpg-sheet-head { align-items: center; }
+.rpg-meter.m-health i { background: linear-gradient(90deg, #ef4444, #f97316); }
+.rpg-meter.m-life { display: flex; align-items: center; gap: 8px; }
+.hearts { display: inline-flex; gap: 1px; font-size: .85em; letter-spacing: -1px; }
+
+.doll-editor { display: grid; grid-template-columns: 190px 1fr; gap: 14px; align-items: start; }
+.de-preview { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; padding: 10px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+.de-ava { border-radius: 14px; }
+.de-panel { min-width: 0; }
+.de-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.de-tabs button { padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: inherit; cursor: pointer; font-size: .85rem; }
+.de-tabs button.on { background: rgba(0,87,255,0.35); border-color: rgba(0,87,255,0.7); }
+.de-group { margin-bottom: 10px; }
+.de-label { display: block; font-size: .75rem; opacity: .7; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.de-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.de-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; padding: 0; }
+.de-swatch.sel { border-color: #fff; box-shadow: 0 0 0 2px #0057ff; }
+.de-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.de-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 62px; padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: inherit; cursor: pointer; }
+.de-opt em { font-style: normal; font-size: .62rem; text-align: center; line-height: 1.1; opacity: .85; }
+.de-opt.sel { border-color: #0057ff; background: rgba(0,87,255,0.25); }
+.de-opt .doll-portrait { border-radius: 8px; }
+@media (max-width: 560px) { .doll-editor { grid-template-columns: 1fr; } }
+
+/* ---------- trabalhos ---------- */
+.job-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 8px; }
+.job-card { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; padding: 10px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: inherit; cursor: pointer; }
+.job-card:hover:not(:disabled) { border-color: #0057ff; background: rgba(0,87,255,0.15); }
+.job-card:disabled { opacity: .5; cursor: not-allowed; }
+.job-ico { font-size: 1.8rem; }
+.job-diff { font-size: .72rem; color: #facc15; }
+.job-pay { font-weight: 700; color: #4ade80; font-size: .85rem; }
+.job-card small { opacity: .75; font-size: .7rem; }
+.job-lock { font-style: normal; font-size: .72rem; color: #f87171; }
+.job-card.d4, .job-card.d5 { border-color: rgba(250,204,21,0.4); }
+.work-grid.reflex { grid-template-columns: repeat(3, 1fr); max-width: 260px; margin: 0 auto; }
+.work-grid.reflex button { height: 62px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; }
+.work-grid.reflex button.ok { background: #22c55e; box-shadow: 0 0 16px #22c55e; }
+
+/* ---------- animação de resultado ---------- */
+.result-overlay { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; pointer-events: auto; background: rgba(5,8,20,0.55); animation: ro-fade .25s ease-out; overflow: hidden; }
+.result-overlay.lose { background: rgba(30,5,10,0.6); }
+.ro-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 28px 22px; border-radius: 24px; background: rgba(14,18,36,0.92); border: 2px solid rgba(255,255,255,0.15); text-align: center; animation: ro-pop .45s cubic-bezier(.2,1.4,.4,1); }
+.result-overlay.win .ro-card { border-color: #facc15; box-shadow: 0 0 40px rgba(250,204,21,0.45); }
+.result-overlay.lose .ro-card { border-color: #ef4444; box-shadow: 0 0 36px rgba(239,68,68,0.35); animation: ro-pop .45s cubic-bezier(.2,1.4,.4,1), ro-shake .5s .3s; }
+.result-overlay.big .ro-card { transform: scale(1.12); }
+.ro-trophy { font-size: 2.6rem; line-height: 1; }
+.result-overlay.win .ro-trophy { animation: ro-bounce .7s ease-in-out infinite alternate; }
+.ro-title { font-size: 1.5rem; letter-spacing: .02em; }
+.result-overlay.win .ro-title { color: #facc15; }
+.result-overlay.lose .ro-title { color: #f87171; }
+.ro-amount { font-size: 1.7rem; font-weight: 800; }
+.result-overlay.win .ro-amount { color: #4ade80; }
+.result-overlay.lose .ro-amount { color: #f87171; }
+.ro-card small { opacity: .75; max-width: 260px; }
+.ro-doll.win { animation: ro-jump .5s ease-in-out infinite alternate; }
+.ro-doll.lose { animation: ro-droop 1.2s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+.ro-rain { position: absolute; inset: 0; pointer-events: none; }
+.ro-rain i { position: absolute; top: -40px; font-style: normal; animation-name: ro-fall; animation-timing-function: linear; animation-fill-mode: forwards; }
+.result-overlay.lose .ro-rain i { animation-name: ro-fall-slow; opacity: .8; }
+@keyframes ro-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ro-pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes ro-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(9px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+@keyframes ro-bounce { from { transform: translateY(0) rotate(-6deg); } to { transform: translateY(-8px) rotate(6deg); } }
+@keyframes ro-jump { from { transform: translateY(0); } to { transform: translateY(-14px); } }
+@keyframes ro-droop { from { transform: rotate(-2deg) scaleY(1); } to { transform: rotate(2deg) scaleY(.96); } }
+@keyframes ro-fall { to { transform: translateY(110vh) rotate(540deg); } }
+@keyframes ro-fall-slow { to { transform: translateY(110vh) rotate(60deg); } }
+@media (prefers-reduced-motion: reduce) { .ro-rain i, .ro-doll, .ro-trophy { animation: none !important; } }
+.career-block { margin-top: 10px; }
+.de-opt.locked { opacity: .45; cursor: not-allowed; }

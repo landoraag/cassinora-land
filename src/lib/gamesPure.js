@@ -279,9 +279,20 @@ export const trucoStrength = (card, manilha) => (card.r === manilha ? 100 + TRUC
 function trucoDealHand(st, mao) {
   const deck = trucoDeck();
   const vira = deck.pop();
+  // Mão de onze (partida de 12): quem tem 11 pontos vê as cartas e decide jogar valendo 3 ou correr
+  // (o outro ganha 1). Nessa mão ninguém pode pedir truco. Se os dois têm 11 é a mão de ferro:
+  // valendo 1, sem pedir. Na partida rápida (6) não existe mão de onze.
+  const top = st.target - 1;
+  const s0 = st.score[0] === top;
+  const s1 = st.score[1] === top;
+  const ferro = st.target >= 12 && s0 && s1;
+  const onze = st.target >= 12 && s0 !== s1 ? (s0 ? 0 : 1) : -1;
   return {
     ...st,
     hand: {
+      noRaise: ferro || onze >= 0,
+      ferro,
+      onze,
       cards: [[deck.pop(), deck.pop(), deck.pop()], [deck.pop(), deck.pop(), deck.pop()]],
       vira,
       manilha: trucoManilhaRank(vira),
@@ -292,7 +303,7 @@ function trucoDealHand(st, mao) {
       turn: mao,
       value: 1,
       lastRaiser: -1,
-      pending: null, // { from, value }
+      pending: onze >= 0 ? { from: 1 - onze, value: 3, onze: true } : null, // { from, value }
     },
   };
 }
@@ -350,7 +361,7 @@ export function trucoPlay(st, p, idx) {
 }
 export const trucoCanRaise = (st, p) => {
   const h = st.hand;
-  return !st.over && !h.pending && h.turn === p && h.value < 12 && h.lastRaiser !== p;
+  return !st.over && !h.pending && !h.noRaise && h.turn === p && h.value < 12 && h.lastRaiser !== p;
 };
 export function trucoRaise(st, p) {
   if (!trucoCanRaise(st, p)) throw new Error("Você não pode pedir agora.");
@@ -362,7 +373,12 @@ export function trucoRespond(st, p, action) {
   const h = st.hand;
   if (st.over || !h.pending || h.pending.from === p) throw new Error("Não há pedido para você responder.");
   const pend = h.pending;
-  if (action === "accept") return { ...st, hand: { ...h, value: pend.value, lastRaiser: pend.from, pending: null, turn: pend.from }, log: "Aceitou!" };
+  if (pend.onze) {
+    if (action === "accept") return { ...st, hand: { ...h, value: 3, pending: null }, log: "Mão de onze: jogando valendo 3" };
+    if (action === "run") return trucoEndHand(st, pend.from, 1, "run");
+    throw new Error("Na mão de onze não dá para aumentar.");
+  }
+  if (action === "accept") return { ...st, hand: { ...h, value: pend.value, lastRaiser: pend.from, pending: null }, log: "Aceitou!" };
   if (action === "run") return trucoEndHand(st, pend.from, h.value, "run");
   if (action === "raise") {
     const nv = TRUCO_NEXT[pend.value];
@@ -398,6 +414,7 @@ export function trucoBot(st, p) {
   const power = (sorted[0] != null ? norm(sorted[0]) : 0) * 0.6 + (sorted[1] != null ? norm(sorted[1]) : 0) * 0.4; // 0..~13
   if (h.pending && h.pending.from !== p) {
     const v = h.pending.value;
+    if (h.pending.onze) return power >= 6.5 || rand() < 0.1 ? { type: "accept" } : { type: "run" };
     const need = v === 3 ? 8.2 : v === 6 ? 9.6 : v === 9 ? 11 : 12;
     const bluff = rand() < 0.1;
     if (power >= need + 2.2 && h.pending.value < 12 && h.lastRaiser !== p && rand() < 0.45) return { type: "raise_back" };

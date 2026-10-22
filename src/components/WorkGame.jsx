@@ -2,15 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { coins, randInt } from "../lib/casino";
 import { work } from "../lib/economy";
-import { WORK_PAY_MAX, WORK_PAY_MIN, hasPersona, payMultiplier, workQuality } from "../lib/rpg";
+import { careerLevel, hasPersona, jobLock, liveStats, workPreview } from "../lib/rpg";
+import { CAREERS, CAREER_XP, DIFF_LABEL, jobQuality, jobsOf, rankName } from "../lib/jobs";
 
-// Trabalhar é um minigame: cada turno tem 5 tarefas. Cada uma vale
+// Trabalhar é um minigame: escolha um trabalho (lib/jobs.js) e faça 5 tarefas. Cada uma vale
 //   1 = certo · 0.5 = meio errado · 0 = errado
-// e a média das notas muda o pagamento (de 30% a 150% do salário). Não tem espera entre um turno
-// e outro: dá para trabalhar o quanto quiser. O pagamento é calculado em lib/rpg.js (workShift).
+// Trabalho difícil paga mais, mas as tarefas são mais duras e a curva de pagamento cobra mais
+// acerto. Cada tarefa recebe `diff` (1..5). O pagamento é calculado em lib/rpg.js (workShift).
 
 const SHIFT_TASKS = 5;
-const TYPES = ["troco", "digitar", "memoria", "ordem"];
+const pickTypes = (job) => Array.from({ length: SHIFT_TASKS }, (_, i) => job.tasks[i % job.tasks.length]);
 
 const shuffled = (arr) => {
   const a = [...arr];
@@ -20,9 +21,6 @@ const shuffled = (arr) => {
   }
   return a;
 };
-// Todos os tipos aparecem e o quinto é sorteado.
-const pickTypes = () => shuffled([...TYPES, TYPES[randInt(TYPES.length)]]).slice(0, SHIFT_TASKS);
-
 function lev(a, b) {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
   for (let j = 1; j <= b.length; j++) dp[0][j] = j;
@@ -83,9 +81,9 @@ function TaskShell({ n, title, hint, seconds, paused, onTimeout, children }) {
 }
 
 /* ---------- 1. Caixa: dar o troco ---------- */
-function TrocoTask({ n, onDone }) {
+function TrocoTask({ n, onDone, diff }) {
   const t = useMemo(() => {
-    const items = Array.from({ length: 3 }, () => 3 + randInt(28));
+    const items = Array.from({ length: 3 }, () => 3 + randInt(18 + diff * 6));
     const total = items.reduce((a, b) => a + b, 0);
     const paid = [50, 100, 200].find((p) => p > total) || 200;
     return { items, total, paid, change: paid - total };
@@ -96,11 +94,11 @@ function TrocoTask({ n, onDone }) {
   const finish = useOnce(onDone);
   const grade = () => {
     if (vRef.current === "") return 0;
-    const diff = Math.abs(Number(vRef.current) - t.change);
-    return diff === 0 ? 1 : diff <= 2 ? 0.5 : 0;
+    const d = Math.abs(Number(vRef.current) - t.change);
+    return d === 0 ? 1 : d <= 2 && diff <= 3 ? 0.5 : 0;
   };
   return (
-    <TaskShell n={n} title="💵 Caixa" seconds={25} hint="Calcule o troco do cliente." onTimeout={() => finish(grade())}>
+    <TaskShell n={n} title="💵 Caixa" seconds={Math.max(12, 28 - diff * 3)} hint="Calcule o troco do cliente." onTimeout={() => finish(grade())}>
       <div className="work-card">
         <p>
           O cliente levou 3 itens: <b>R$ {t.items[0]}</b>, <b>R$ {t.items[1]}</b> e <b>R$ {t.items[2]}</b>.
@@ -137,8 +135,11 @@ const PHRASES = [
   "atendimento rapido e cliente satisfeito",
   "reuniao marcada para amanha as dez horas",
 ];
-function DigitarTask({ n, onDone }) {
-  const phrase = useMemo(() => PHRASES[randInt(PHRASES.length)], []);
+function DigitarTask({ n, onDone, diff }) {
+  const phrase = useMemo(() => {
+    const a = PHRASES[randInt(PHRASES.length)];
+    return diff >= 4 ? `${a} ${PHRASES[randInt(PHRASES.length)]}` : a;
+  }, [diff]);
   const [v, setV] = useState("");
   const vRef = useRef("");
   vRef.current = v;
@@ -147,10 +148,10 @@ function DigitarTask({ n, onDone }) {
     const typed = vRef.current.trim().toLowerCase();
     if (!typed) return 0;
     const sim = 1 - lev(typed, phrase) / Math.max(phrase.length, typed.length);
-    return sim >= 0.95 ? 1 : sim >= 0.75 ? 0.5 : 0;
+    return sim >= (diff >= 4 ? 0.98 : 0.95) ? 1 : sim >= 0.8 ? 0.5 : 0;
   };
   return (
-    <TaskShell n={n} title="💬 Atendimento" seconds={30} hint="Digite a mensagem exatamente como está (sem colar)." onTimeout={() => finish(grade())}>
+    <TaskShell n={n} title="💬 Mensagem" seconds={diff >= 4 ? 34 : 28} hint="Digite a mensagem exatamente como está (sem colar)." onTimeout={() => finish(grade())}>
       <div className="work-card">
         <p className="work-phrase">{phrase}</p>
         <div className="work-row">
@@ -177,8 +178,8 @@ function DigitarTask({ n, onDone }) {
 
 /* ---------- 3. Estoque: lembrar a ordem ---------- */
 const STOCK = ["🍎", "🍌", "🍇", "🍒", "🥕", "🍋", "🍉", "🥑"];
-const SEQ_LEN = 4;
-function MemoriaTask({ n, onDone }) {
+function MemoriaTask({ n, onDone, diff }) {
+  const SEQ_LEN = Math.min(7, 3 + diff);
   const { seq, grid } = useMemo(() => {
     const s = shuffled(STOCK).slice(0, SEQ_LEN);
     return { seq: s, grid: shuffled(STOCK) };
@@ -189,12 +190,12 @@ function MemoriaTask({ n, onDone }) {
   picksRef.current = picks;
   const finish = useOnce(onDone);
   useEffect(() => {
-    const t = setTimeout(() => setPhase("pick"), 3200);
+    const t = setTimeout(() => setPhase("pick"), Math.max(1800, 3600 - diff * 300));
     return () => clearTimeout(t);
   }, []);
   const grade = (list) => {
     const right = list.filter((e, i) => e === seq[i]).length;
-    return right === SEQ_LEN ? 1 : right >= 2 ? 0.5 : 0;
+    return right === SEQ_LEN ? 1 : right >= Math.ceil(SEQ_LEN / 2) ? 0.5 : 0;
   };
   function pick(e) {
     if (phase !== "pick" || picks.includes(e)) return;
@@ -205,7 +206,7 @@ function MemoriaTask({ n, onDone }) {
   return (
     <TaskShell
       n={n}
-      title="📦 Estoque"
+      title="📦 Memória"
       seconds={20}
       paused={phase === "show"}
       hint={phase === "show" ? "Memorize a ordem dos produtos que o fornecedor entregou…" : "Agora toque nos produtos na mesma ordem."}
@@ -240,10 +241,11 @@ function MemoriaTask({ n, onDone }) {
 }
 
 /* ---------- 4. Prateleira: ordenar os preços ---------- */
-function OrdemTask({ n, onDone }) {
+function OrdemTask({ n, onDone, diff }) {
+  const COUNT = 4 + Math.min(4, diff);
   const nums = useMemo(() => {
     const s = new Set();
-    while (s.size < 5) s.add(5 + randInt(95));
+    while (s.size < COUNT) s.add(5 + randInt(95));
     return shuffled([...s]);
   }, []);
   const sorted = useMemo(() => [...nums].sort((a, b) => a - b), [nums]);
@@ -270,7 +272,7 @@ function OrdemTask({ n, onDone }) {
     }
   }
   return (
-    <TaskShell n={n} title="🏷️ Prateleira" seconds={20} hint="Toque nos preços do MENOR para o MAIOR." onTimeout={() => finish(grade(stateRef.current))}>
+    <TaskShell n={n} title="🏷️ Prateleira" seconds={Math.max(12, 24 - diff * 2)} hint="Toque nos preços do MENOR para o MAIOR." onTimeout={() => finish(grade(stateRef.current))}>
       <div className="work-card">
         <div className="work-grid prices">
           {nums.map((v) => (
@@ -284,9 +286,141 @@ function OrdemTask({ n, onDone }) {
     </TaskShell>
   );
 }
-const TASK_VIEW = { troco: TrocoTask, digitar: DigitarTask, memoria: MemoriaTask, ordem: OrdemTask };
-const MARK = { 1: "✅", 0.5: "🟡", 0: "❌" };
 
+/* ---------- 5. Conta: cálculo de cabeça (cresce com a dificuldade) ---------- */
+function ContaTask({ n, onDone, diff }) {
+  const t = useMemo(() => {
+    const a = 6 + randInt(10 * diff);
+    const b = 3 + randInt(8 * diff);
+    const c = 2 + randInt(9);
+    const x = 2 + randInt(8);
+    const y = 3 + randInt(9);
+    const m = 11 + randInt(14);
+    const k = 3 + randInt(7);
+    if (diff <= 1) return { q: `${a} + ${b}`, ans: a + b };
+    if (diff === 2) return { q: `${a + 10} − ${b} + ${c}`, ans: a + 10 - b + c };
+    if (diff === 3) return { q: `${x} × ${y} + ${c}`, ans: x * y + c };
+    if (diff === 4) return { q: `${m} × ${k} − ${a}`, ans: m * k - a };
+    return { q: `(${a + 9} + ${b}) × ${k} − ${c}`, ans: (a + 9 + b) * k - c };
+  }, [diff]);
+  const ans = t.ans;
+  const [v, setV] = useState("");
+  const vRef = useRef("");
+  vRef.current = v;
+  const finish = useOnce(onDone);
+  const grade = () => {
+    if (vRef.current === "") return 0;
+    const d = Math.abs(Number(vRef.current) - ans);
+    return d === 0 ? 1 : d <= Math.max(1, diff - 2) && diff <= 3 ? 0.5 : 0;
+  };
+  return (
+    <TaskShell n={n} title="🧮 Conta" seconds={Math.max(10, 22 - diff * 2)} hint="Resolva de cabeça." onTimeout={() => finish(grade())}>
+      <div className="work-card">
+        <p className="work-phrase">{t.q} = ?</p>
+        <div className="work-row">
+          <input className="eco-note" type="number" inputMode="numeric" autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && finish(grade())} placeholder="Resposta" />
+          <button type="button" className="btn btn-gradient" onClick={() => finish(grade())}>
+            Entregar
+          </button>
+        </div>
+      </div>
+    </TaskShell>
+  );
+}
+
+/* ---------- 6. Sequência: qual é o próximo número? ---------- */
+function SequenciaTask({ n, onDone, diff }) {
+  const t = useMemo(() => {
+    const a = 1 + randInt(6);
+    const d = 2 + randInt(4);
+    let list;
+    if (diff <= 2) list = Array.from({ length: 5 }, (_, i) => a + d * i);
+    else if (diff === 3) list = Array.from({ length: 5 }, (_, i) => a * Math.pow(2, i));
+    else if (diff === 4) list = Array.from({ length: 6 }, (_, i) => (i + 1) * (i + 1) + a);
+    else list = [a, a + 1, a + 3, a + 6, a + 10, a + 15]; // somas crescentes
+    const ans = list[list.length - 1];
+    const shown = list.slice(0, -1);
+    const wrong = new Set();
+    while (wrong.size < 3) {
+      const w = ans + (randInt(9) - 4) * (1 + Math.floor(diff / 2));
+      if (w !== ans && w > 0) wrong.add(w);
+    }
+    return { shown, ans, opts: shuffled([ans, ...wrong]) };
+  }, [diff]);
+  const finish = useOnce(onDone);
+  return (
+    <TaskShell n={n} title="🔢 Sequência" seconds={Math.max(9, 20 - diff * 2)} hint="Qual número completa a sequência?" onTimeout={() => finish(0)}>
+      <div className="work-card">
+        <p className="work-phrase">{t.shown.join(" · ")} · ?</p>
+        <div className="work-grid prices">
+          {t.opts.map((o) => (
+            <button type="button" key={o} onClick={() => finish(o === t.ans ? 1 : 0)}>
+              {o}
+            </button>
+          ))}
+        </div>
+      </div>
+    </TaskShell>
+  );
+}
+
+/* ---------- 7. Reflexo: toque nos alvos que acendem ---------- */
+function ReflexoTask({ n, onDone, diff }) {
+  const TARGETS = 4 + diff; // quantos alvos acendem
+  const [lit, setLit] = useState(-1);
+  const [hits, setHits] = useState(0);
+  const [shown, setShown] = useState(0);
+  const st = useRef({ hits: 0, shown: 0 });
+  const finish = useOnce(onDone);
+  const grade = () => {
+    const r = st.current.hits / TARGETS;
+    return r >= 0.9 ? 1 : r >= 0.55 ? 0.5 : 0;
+  };
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => {
+    let id;
+    const ms = Math.max(520, 1100 - diff * 120);
+    const step = () => {
+      if (!alive.current) return;
+      if (st.current.shown >= TARGETS) {
+        setLit(-1);
+        setTimeout(() => finish(grade()), 400);
+        return;
+      }
+      st.current.shown += 1;
+      setShown(st.current.shown);
+      setLit(randInt(9));
+      id = setTimeout(() => {
+        setLit(-1);
+        id = setTimeout(step, 180);
+      }, ms);
+    };
+    id = setTimeout(step, 600);
+    return () => clearTimeout(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  function tap(i) {
+    if (i !== lit) return;
+    st.current.hits += 1;
+    setHits(st.current.hits);
+    setLit(-1);
+  }
+  return (
+    <TaskShell n={n} title="⚡ Reflexo" seconds={Math.ceil(TARGETS * (Math.max(520, 1100 - diff * 120) + 180) / 1000) + 4} hint={`Toque nos quadrados que acendem (${hits}/${TARGETS}).`} onTimeout={() => finish(grade())}>
+      <div className="work-card">
+        <div className="work-grid reflex">
+          {Array.from({ length: 9 }, (_, i) => (
+            <button type="button" key={i} className={i === lit ? "ok" : ""} onClick={() => tap(i)} aria-label={`alvo ${i + 1}`} />
+          ))}
+        </div>
+        <small className="muted">
+          Alvo {Math.min(shown, TARGETS)}/{TARGETS}
+        </small>
+      </div>
+    </TaskShell>
+  );
+}
+const TASK_VIEW = { troco: TrocoTask, digitar: DigitarTask, memoria: MemoriaTask, ordem: OrdemTask, conta: ContaTask, sequencia: SequenciaTask, reflexo: ReflexoTask };
 function verdict(ratio) {
   if (ratio >= 1) return ["🌟", "Turno perfeito!"];
   if (ratio >= 0.7) return ["👏", "Bom trabalho!"];
@@ -295,10 +429,12 @@ function verdict(ratio) {
 }
 
 /* ---------- o turno ---------- */
+const MARK = { 1: "✅", 0.5: "🟡", 0: "❌" };
 export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona }) {
   const { user } = useAuth();
-  const [types, setTypes] = useState(pickTypes);
-  const [phase, setPhase] = useState("intro"); // intro | play | saving | done
+  const [job, setJob] = useState(null);
+  const [types, setTypes] = useState([]);
+  const [phase, setPhase] = useState("pick"); // pick | play | saving | retry | done
   const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState([]);
   const [feedback, setFeedback] = useState(null);
@@ -322,7 +458,7 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
     setPhase("saving");
     setError("");
     try {
-      const r = await work(user.uid, all);
+      const r = await work(user.uid, all, job.id);
       setResult(r);
       setPhase("done");
       onFinished?.(r);
@@ -343,8 +479,9 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
     }, 750);
   }
 
-  function start() {
-    setTypes(pickTypes());
+  function start(j) {
+    setJob(j);
+    setTypes(pickTypes(j));
     setScores([]);
     setIdx(0);
     setFeedback(null);
@@ -353,30 +490,51 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
     setPhase("play");
   }
 
-  if (phase === "intro") {
-    const base = Math.round(payMultiplier(wallet) * 100);
+  if (phase === "pick") {
+    const s = liveStats(wallet);
     return (
       <div className="game work-intro">
-        <p>
-          Cada turno tem <b>{SHIFT_TASKS} tarefas rápidas</b>. Fez certo, ganha mais; fez meio errado, ganha menos. Não tem espera: trabalhe o quanto quiser.
+        <p className="game-hint">
+          Escolha a carreira e o trabalho. Cada turno dá pontos de carreira: subindo de degrau você libera trabalhos que pagam muito mais (e uma roupa de cargo, como o jaleco de médico). Também dá para comprar a formação na Faculdade. Quanto mais difícil, mais cansa e mais cobra acerto.
+          Saúde ❤️‍🩹 {s.health}/100 · Vidas {"❤️".repeat(s.lives)}
+          {"🖤".repeat(5 - s.lives)}
         </p>
-        <div className="rpg-facts">
-          <div>
-            <span>Seu bônus de salário</span>
-            <b>{base}%</b>
-          </div>
-          <div>
-            <span>Tudo certo paga</span>
-            <b>{Math.round(WORK_PAY_MAX * 100)}%</b>
-          </div>
-          <div>
-            <span>Tudo errado paga</span>
-            <b>{Math.round(WORK_PAY_MIN * 100)}%</b>
-          </div>
-        </div>
-        <button type="button" className="btn btn-gradient game-go" onClick={start}>
-          Começar turno 💼
-        </button>
+        {CAREERS.map((c) => {
+          const lv = careerLevel(wallet, c.id);
+          const xp = Number(wallet.careers?.[c.id]) || 0;
+          const next = CAREER_XP[lv + 1];
+          return (
+            <section key={c.id} className="career-block">
+              <h4 className="eco-sub">
+                {c.icon} {c.name} · <b>{rankName(c.id, lv)}</b>
+                <small className="muted"> {next ? ` ${xp}/${next} pts para o próximo degrau` : " no topo!"}</small>
+              </h4>
+              <div className="job-list">
+                {jobsOf(c.id).map((j) => {
+                  const lock = jobLock(j, wallet);
+                  const p = workPreview(j, wallet);
+                  return (
+                    <button type="button" key={j.id} className={"job-card d" + j.diff} disabled={!!lock} onClick={() => start(j)} title={lock}>
+                      <span className="job-ico">{j.icon}</span>
+                      <b>{j.name}</b>
+                      <span className="job-diff">
+                        {"★".repeat(j.diff)}
+                        {"☆".repeat(5 - j.diff)} {DIFF_LABEL[j.diff]}
+                      </span>
+                      <span className="job-pay">
+                        💰 {p.min.toLocaleString("pt-BR")} a {p.max.toLocaleString("pt-BR")}
+                      </span>
+                      <small>
+                        ⚡ −{j.energy} · ❤️‍🩹 −{j.health}+ · 🌟 até +{j.fame}
+                      </small>
+                      {lock && <em className="job-lock">🔒 {lock}</em>}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
       </div>
     );
   }
@@ -387,9 +545,14 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
     return (
       <div className="game work-intro">
         <p className="auth-error">{error}</p>
-        <button type="button" className="btn btn-gradient game-go" onClick={() => save(scores)}>
-          Tentar receber de novo
-        </button>
+        <div className="game-actions">
+          <button type="button" className="btn btn-gradient" onClick={() => save(scores)}>
+            Tentar receber de novo
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={() => setPhase("pick")}>
+            Escolher outro trabalho
+          </button>
+        </div>
       </div>
     );
 
@@ -402,7 +565,7 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
             {icon} {text}
           </b>
           <small>
-            {result.emoji} {wallet.persona.name} {result.job}
+            {result.emoji} {wallet.persona.name} trabalhou como {result.job}
             {result.tip ? " · gorjeta dobrada! 🤑" : ""}
           </small>
           <span>+{coins(result.amount + (result.levelUp?.bonus || 0))}</span>
@@ -413,12 +576,26 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
           ))}
         </div>
         <p className="game-hint">
-          +{result.xp} XP · pagou {Math.round(workQuality(result.ratio) * 100)}% do salário
+          +{result.xp} XP · +{result.fame} fama 🌟 · −{result.hurt} saúde · pagou {Math.round(jobQuality(result.ratio, result.diff) * 100)}% da faixa do trabalho
           {result.levelUp ? ` · ⭐ Nível ${result.levelUp.to}! +${coins(result.levelUp.bonus)}` : ""}
         </p>
+        {result.careerUp && (
+          <p className="game-hint">
+            🎓 Promoção! Você agora é <b>{result.careerUp.rank}</b> na carreira. Novos trabalhos e roupas de cargo liberados.
+          </p>
+        )}
+        <p className="game-hint">+{result.careerXp} pontos de carreira</p>
+        {result.fainted && (
+          <p className="auth-error">
+            🚑 Você desmaiou de exaustão! Perdeu 1 vida e a conta do hospital foi {coins(result.fee)}. Cuide da saúde na loja Saúde & Hospital.
+          </p>
+        )}
         <div className="game-actions">
-          <button type="button" className="btn btn-gradient" onClick={start}>
+          <button type="button" className="btn btn-gradient" onClick={() => start(job)}>
             Trabalhar de novo
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={() => setPhase("pick")}>
+            Outro trabalho
           </button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Fechar
@@ -432,6 +609,7 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
   return (
     <div className="game work-play">
       <div className="work-marks">
+        <span title={job.name}>{job.icon}</span>
         {Array.from({ length: SHIFT_TASKS }, (_, i) => (
           <span key={i} className={i === idx ? "now" : ""}>
             {scores[i] !== undefined ? MARK[scores[i]] : "⚪"}
@@ -439,11 +617,9 @@ export default function WorkGame({ wallet, onFinished, onClose, onNeedPersona })
         ))}
       </div>
       {feedback !== null ? (
-        <div className="work-feedback">
-          {feedback === 1 ? "✅ Certo!" : feedback === 0.5 ? "🟡 Quase… meio errado" : "❌ Errou"}
-        </div>
+        <div className="work-feedback">{feedback === 1 ? "✅ Certo!" : feedback === 0.5 ? "🟡 Quase… meio errado" : "❌ Errou"}</div>
       ) : (
-        <View key={idx} n={idx + 1} onDone={taskDone} />
+        <View key={idx} n={idx + 1} diff={job.diff} onDone={taskDone} />
       )}
     </div>
   );

@@ -20,6 +20,7 @@ import {
   startTable,
 } from "../lib/tables";
 import { BetPicker, PlayingCard, fmtX } from "./Casino";
+import { announceResult } from "../lib/resultBus";
 import { CrashTable, HiloTable, InstantTable, MinesTable, PickSelector, TowerTable, TrucoTable, UnoTable, pickLabel } from "./TablesMore";
 import Avatar from "./Avatar";
 
@@ -197,6 +198,11 @@ export function TableCard({ id }) {
     if (!t) return;
     const mine = t.players.some((p) => p.uid === me.uid);
     if (prev.current === "lobby" && t.status !== "lobby" && t.status !== "cancelled" && mine) setView(true);
+    // fim da partida (só se a mesa estava rolando aqui): animação de quem ganhou e perdeu
+    if (mine && t.status === "done" && t.result && (prev.current === "lobby" || prev.current === "playing")) {
+      const net = (t.result.payouts?.[me.uid] || 0) - t.bet;
+      announceResult({ key: "t-" + t.id, net, game: t.game, text: t.result.text, table: true });
+    }
     prev.current = t.status;
   }, [t?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,3 +1,4 @@
+import { play } from "../lib/sound";
 import { useEffect, useRef, useState } from "react";
 import { coins } from "../lib/casino";
 import {
@@ -341,6 +342,7 @@ function Crash({ wallet, onError }) {
     const L = { bet, crash: crashPoint(), t0: performance.now(), done: false, auto: Math.max(1.01, Number(String(auto).replace(",", ".")) || 0) };
     if (!(Number(String(auto).replace(",", ".")) > 1)) L.auto = 0;
     live.current = L;
+    play("launch");
     guard.current = () => finish(L, 0);
     setSt({ phase: "fly", bet });
     setMult(1);
@@ -365,7 +367,7 @@ function Crash({ wallet, onError }) {
 
   const fly = st.phase === "fly";
   return (
-    <div className="game crash">
+    <div className="game crash-game">
       <div className={"crash-screen" + (st.phase === "done" ? (st.cashAt ? " win" : " boom") : "")}>
         <span className={"crash-rocket" + (fly ? " fly" : "")} style={fly ? { transform: `translate(${Math.min(70, Math.log(mult) * 40)}px, ${-Math.min(60, Math.log(mult) * 34)}px) rotate(-8deg)` } : undefined}>
           {st.phase === "done" && !st.cashAt ? "💥" : "🚀"}

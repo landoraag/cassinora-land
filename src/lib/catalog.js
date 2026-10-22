@@ -22,6 +22,8 @@ export const MULTI_IDS = ["blackjack", "baccarat", "vpoker", "truco", "uno", "hi
 
 // Atalhos para os painéis da economia (?abrir=…).
 export const ECONOMY_TILES = [
+  { id: "city", icon: "🏙️", name: "Cidade", desc: "Passeie e visite casas", hue: 190, to: "/cidade" },
+  { id: "profile", icon: "🧑", name: "Meu perfil", desc: "Boneco, nome e foto", hue: 300, to: "/perfil" },
   { id: "work", icon: "💼", name: "Trabalhar", desc: "Minigame, sem espera", hue: 205 },
   { id: "shops", icon: "🛍️", name: "Lojas", desc: "Comida, casa, carro…", hue: 285 },
   { id: "bank", icon: "🏦", name: "Banco", desc: "Guardar e sacar", hue: 220 },

@@ -480,9 +480,9 @@ export function CrashTable({ t, me, busy, act }) {
   const cashed = s.cashed || {};
 
   return (
-    <div className="game crash">
+    <div className="game crash-game">
       <div className={"crash-screen" + (boom ? " boom" : "")}>
-        <span className={"crash-rocket" + (started && !boom ? " fly" : "")}>{boom ? "💥" : "🚀"}</span>
+        <span className={"crash-rocket" + (started && !boom ? " fly" : "")} style={started && !boom ? { transform: `translate(${Math.min(70, Math.log(m) * 40)}px, ${-Math.min(60, Math.log(m) * 34)}px) rotate(-8deg)` } : undefined}>{boom ? "💥" : "🚀"}</span>
         <b className="crash-mult">{started || boom ? fmtX(shown) : `${Math.max(0, Math.ceil(-sec))}…`}</b>
         {!started && live && <small>Decolando em instantes…</small>}
       </div>

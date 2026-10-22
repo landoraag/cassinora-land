@@ -3,6 +3,8 @@ import { onSnapshot } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import { useCollection } from "../lib/useCollection";
 import Avatar from "./Avatar";
+import { announceResult } from "../lib/resultBus";
+import { play } from "../lib/sound";
 import { MORE_GAMES } from "./CasinoMore";
 import { CLASSIC_GAMES } from "./CasinoClassics";
 import { CARD_GAMES } from "./CasinoCards";
@@ -59,10 +61,15 @@ export function useWallet() {
 export function useRound() {
   const { user, profile } = useAuth();
   return {
-    start: (bet) => placeBet(user.uid, bet),
+    start: async (bet) => {
+      const r = await placeBet(user.uid, bet);
+      play("bet");
+      return r;
+    },
     finish: async (game) => {
       await settle(user.uid, game.bet, game.payout);
       postResult(user, profile, game).catch(() => {});
+      announceResult({ net: (game.payout || 0) - (game.bet || 0), game: game.type, text: game.detail });
     },
   };
 }

@@ -51,7 +51,7 @@ async function readWallet(tx, uid) {
 // Minigame: o turno tem várias tarefas (components/WorkGame.jsx) e o pagamento depende de quão bem
 // você foi (results: nota de cada tarefa, 1 = certo, 0.5 = meio errado, 0 = errado). Sem espera
 // entre um turno e outro. Veja lib/rpg.js.
-export const work = (uid, results) => workShift(uid, results);
+export const work = (uid, results, jobId) => workShift(uid, results, jobId);
 
 /* ---------------- banco ---------------- */
 export async function deposit(uid, amount) {

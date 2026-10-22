@@ -104,13 +104,13 @@ export function TrucoBoard({ st, me, names, onAction, busy, waiting }) {
       {mustAnswer && (
         <div className="truco-ask">
           <b>
-            {names[h.pending.from]}: {TRUCO_CALL_NAME[h.pending.value]}
+            {h.pending.onze ? "✋ Mão de onze! Jogue valendo 3 ou corra (o adversário ganha 1)." : `${names[h.pending.from]}: ${TRUCO_CALL_NAME[h.pending.value]}`}
           </b>
           <div className="game-actions">
             <button type="button" className="btn btn-gradient" disabled={busy} onClick={() => onAction({ type: "accept" })}>
-              Aceitar ({h.pending.value})
+              {h.pending.onze ? "Jogar (vale 3)" : `Aceitar (${h.pending.value})`}
             </button>
-            {h.pending.value < 12 && (
+            {h.pending.value < 12 && !h.pending.onze && (
               <button type="button" className="btn btn-danger-solid" disabled={busy} onClick={() => onAction({ type: "raise_back" })}>
                 {TRUCO_CALL_NAME[{ 3: 6, 6: 9, 9: 12 }[h.pending.value]]}
               </button>
@@ -121,7 +121,8 @@ export function TrucoBoard({ st, me, names, onAction, busy, waiting }) {
           </div>
         </div>
       )}
-      {waitingAnswer && <p className="game-hint">Você pediu {TRUCO_CALL_NAME[h.pending.value]} — esperando a resposta…</p>}
+      {waitingAnswer && h.pending.onze && <p className="game-hint">O adversário está na mão de onze e decide se joga ou corre…</p>}
+      {waitingAnswer && !h.pending.onze && <p className="game-hint">Você pediu {TRUCO_CALL_NAME[h.pending.value]} — esperando a resposta…</p>}
       {myTurn && !waiting && (
         <div className="game-actions">
           {canRaise && nextCall && (

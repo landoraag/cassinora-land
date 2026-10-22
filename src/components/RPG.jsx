@@ -3,7 +3,6 @@ import { useAuth } from "../context/AuthContext";
 import { useCollection } from "../lib/useCollection";
 import { coins, postResult } from "../lib/casino";
 import {
-  AVATARS,
   CAUSES,
   CHARITY_MIN,
   CLASSES,
@@ -22,11 +21,17 @@ import {
   equippedOf,
   hasPersona,
   isCosmetic,
+  MAX_HEALTH,
+  accLock,
+  cargoOf,
+  careerLevel,
+  outfitLock,
+  fameTitle,
+  nextFame,
   levelInfo,
   liveStats,
   lockReason,
   nextTitle,
-  safeEmoji,
   payMultiplier,
   priceOf,
   shopDiscount,
@@ -35,9 +40,12 @@ import {
   unequipCosmetic,
   useItem as consumeItem,
 } from "../lib/rpg";
+import { DollEditor } from "./Doll";
+import Doll from "./Doll";
+import { ACCESSORIES, OUTFITS, cleanDoll, defaultDoll, dollOf } from "../lib/doll";
+import { CAREERS, CAREER_XP, rankName } from "../lib/jobs";
 import { CosmeticPreview, PersonaAvatar, PersonaName, frameClass } from "./Cosmetics";
 import { Ranking } from "./Casino";
-import Avatar from "./Avatar";
 
 const post = (user, profile, g) => postResult(user, profile, g, "economy").catch(() => {});
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -57,7 +65,7 @@ export function announceLevelUp(user, profile, up) {
 }
 
 /* ---------------- barrinhas ---------------- */
-function Meter({ label, value, max, kind }) {
+export function Meter({ label, value, max, kind }) {
   return (
     <div className={"rpg-meter m-" + kind} title={`${label}: ${value}/${max}`}>
       <span>{label}</span>
@@ -66,6 +74,18 @@ function Meter({ label, value, max, kind }) {
       </div>
       <b>{value}</b>
     </div>
+  );
+}
+
+export function Hearts({ n, max = 5 }) {
+  return (
+    <span className="hearts" title={`Vidas: ${n}/${max}`}>
+      {Array.from({ length: max }, (_, i) => (
+        <i key={i} className={i < n ? "on" : ""}>
+          {i < n ? "❤️" : "🖤"}
+        </i>
+      ))}
+    </span>
   );
 }
 
@@ -104,9 +124,10 @@ export function PersonaStrip({ wallet, onOpen, onCreate }) {
       <span className="rpg-meters">
         <Meter label="⚡" value={s.energy} max={s.maxEnergy} kind="energy" />
         <Meter label="😊" value={s.mood} max={100} kind="mood" />
+        <Meter label="❤️‍🩹" value={s.health} max={MAX_HEALTH} kind="health" />
       </span>
-      <span className="rpg-social" title="Pontos sociais">
-        🤝 {s.social}
+      <span className="rpg-social" title="Vidas · fama · pontos sociais">
+        <Hearts n={s.lives} /> · 🌟 {s.fame} · 🤝 {s.social}
       </span>
     </button>
   );
@@ -117,7 +138,8 @@ export function PersonaForm({ wallet, onDone, onMsg }) {
   const { user, profile } = useAuth();
   const editing = hasPersona(wallet);
   const [name, setName] = useState(wallet?.persona?.name || profile?.nickname || "");
-  const [emoji, setEmoji] = useState(safeEmoji(wallet?.persona?.emoji) || AVATARS[0]);
+  const [doll, setDoll] = useState(() => (wallet?.persona?.doll ? cleanDoll(wallet.persona.doll) : defaultDoll(wallet?.persona?.name || profile?.nickname || user?.uid)));
+  const emoji = wallet?.persona?.emoji || "😎";
   const [cls, setCls] = useState(wallet?.persona?.cls || "");
   const [bio, setBio] = useState(wallet?.persona?.bio || "");
   const [busy, setBusy] = useState(false);
@@ -127,12 +149,12 @@ export function PersonaForm({ wallet, onDone, onMsg }) {
     setBusy(true);
     try {
       if (editing) {
-        await editPersona(user.uid, { name, emoji, cls, bio });
+        await editPersona(user.uid, { name, emoji, cls, bio, doll });
         onMsg(changingClass ? `Agora você é ${CLASSES[cls].name}.` : "Persona atualizada.");
         if (changingClass)
           post(user, profile, { type: "persona", bet: 0, payout: 0, text: `virou ${CLASSES[cls].icon} ${CLASSES[cls].name}`, detail: `${emoji} ${name} mudou de carreira` });
       } else {
-        await createPersona(user.uid, { name, emoji, cls, bio });
+        await createPersona(user.uid, { name, emoji, cls, bio, doll });
         onMsg(`${emoji} ${name} chegou na cidade!`);
         post(user, profile, { type: "persona", bet: 0, payout: 0, text: `criou a persona ${emoji} ${name}`, detail: `${CLASSES[cls].icon} ${CLASSES[cls].name}${bio ? ` · “${bio}”` : ""}` });
       }
@@ -145,17 +167,9 @@ export function PersonaForm({ wallet, onDone, onMsg }) {
 
   return (
     <div className="game rpg-form">
-      <div className="rpg-form-top">
-        <span className={"rpg-ava big" + frameClass(wallet)}>{emoji}</span>
-        <input className="eco-note" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome da persona" maxLength={32} />
-      </div>
-      <div className="rpg-emojis">
-        {AVATARS.map((a) => (
-          <button type="button" key={a} className={a === emoji ? "sel" : ""} onClick={() => setEmoji(a)}>
-            {a}
-          </button>
-        ))}
-      </div>
+      <input className="eco-note" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome da persona" maxLength={32} />
+      <h4 className="eco-sub">Seu boneco</h4>
+      <DollEditor value={doll} onChange={setDoll} outfitLocks={Object.fromEntries(Object.keys(OUTFITS).map((o) => [o, outfitLock(wallet, o)]).filter(([, l]) => l))} accLocks={Object.fromEntries(Object.keys(ACCESSORIES).map((a) => [a, accLock(wallet, a)]).filter(([, l]) => l))} />
       <h4 className="eco-sub">Classe</h4>
       <div className="rpg-classes">
         {Object.entries(CLASSES).map(([id, c]) => (
@@ -170,7 +184,7 @@ export function PersonaForm({ wallet, onDone, onMsg }) {
       <button type="button" className="btn btn-gradient game-go" disabled={busy || !name.trim() || !cls} onClick={save}>
         {editing ? (changingClass ? `Salvar e trocar de classe (${coins(CLASS_CHANGE_COST)})` : "Salvar") : "Começar a vida na cidade"}
       </button>
-      {editing && <p className="game-hint">Nome, avatar e frase mudam de graça. Trocar de classe custa {coins(CLASS_CHANGE_COST)}.</p>}
+      {editing && <p className="game-hint">Nome, boneco e frase mudam de graça. Trocar de classe custa {coins(CLASS_CHANGE_COST)}.</p>}
     </div>
   );
 }
@@ -206,13 +220,21 @@ export function PersonaSheet({ wallet, onMsg, onEdit, onShop }) {
   return (
     <div className="game rpg-sheet">
       <div className="rpg-sheet-head">
-        <PersonaAvatar wallet={wallet} size="big" />
+        <Doll cfg={dollOf(wallet)} size={150} mood={s.mood} energy={s.energy} health={s.health} className="sheet-doll" />
         <div>
           <h3>
             <PersonaName wallet={wallet} />
           </h3>
           <span>
             {c?.icon} {c?.name} · {t.icon} {t.name}
+          </span>
+          {cargoOf(wallet) && (
+            <span>
+              {cargoOf(wallet).career.icon} {cargoOf(wallet).rank} · carreira de {cargoOf(wallet).career.name}
+            </span>
+          )}
+          <span>
+            {fameTitle(s.fame).icon} {fameTitle(s.fame).name} · 🌟 {s.fame} de fama
           </span>
           {wallet.persona.bio && <em>“{wallet.persona.bio}”</em>}
         </div>
@@ -236,6 +258,12 @@ export function PersonaSheet({ wallet, onMsg, onEdit, onShop }) {
       <div className="rpg-stats">
         <Meter label="⚡ Energia" value={s.energy} max={s.maxEnergy} kind="energy" />
         <Meter label="😊 Humor" value={s.mood} max={100} kind="mood" />
+        <Meter label="❤️‍🩹 Saúde" value={s.health} max={MAX_HEALTH} kind="health" />
+        <div className="rpg-meter m-life" title="Vidas">
+          <span>Vida</span>
+          <Hearts n={s.lives} />
+          <b>{s.lives}/5</b>
+        </div>
       </div>
 
       <div className="rpg-facts">
@@ -260,9 +288,28 @@ export function PersonaSheet({ wallet, onMsg, onEdit, onShop }) {
           <b>{shopDiscount(wallet) >= 0 ? pct(shopDiscount(wallet)) : `+${pct(-shopDiscount(wallet))} mais caro`}</b>
         </div>
         <div>
+          <span>Próxima fama</span>
+          <b>{nextFame(s.fame) ? `${nextFame(s.fame).icon} em ${nextFame(s.fame).min - s.fame}` : "o máximo!"}</b>
+        </div>
+        <div>
           <span>Próximo título</span>
           <b>{nt ? `${nt.icon} em ${nt.min - s.social} pts` : "o máximo!"}</b>
         </div>
+      </div>
+
+      <h4 className="eco-sub">Carreiras</h4>
+      <div className="rpg-assets">
+        {CAREERS.map((c) => {
+          const lv = careerLevel(wallet, c.id);
+          const xp = Number(wallet.careers?.[c.id]) || 0;
+          if (!xp && !lv) return null;
+          return (
+            <span key={c.id} title={`${xp} pontos`}>
+              {c.icon} {rankName(c.id, lv)} {CAREER_XP[lv + 1] ? `(${xp}/${CAREER_XP[lv + 1]})` : "(topo)"}
+            </span>
+          );
+        })}
+        {!Object.keys(wallet.careers || {}).length && <span className="muted">Trabalhe para começar uma carreira.</span>}
       </div>
 
       <h4 className="eco-sub">Patrimônio</h4>
@@ -315,7 +362,7 @@ export function PersonaSheet({ wallet, onMsg, onEdit, onShop }) {
                 </b>
                 <span>{item.type === "item" ? item.desc : effectText(item)}</span>
               </span>
-              {["food", "fun"].includes(item.type) && (
+              {["food", "fun", "care"].includes(item.type) && (
                 <button type="button" className="btn btn-cash" disabled={busy} onClick={() => use(item)}>
                   Usar
                 </button>
@@ -332,6 +379,8 @@ function effectText(e) {
   const parts = [];
   if (e.energy) parts.push(`${e.energy > 0 ? "+" : ""}${e.energy} ⚡`);
   if (e.mood) parts.push(`${e.mood > 0 ? "+" : ""}${e.mood} 😊`);
+  if (e.health) parts.push(`${e.health > 0 ? "+" : ""}${e.health} ❤️‍🩹`);
+  if (e.lives) parts.push(`+${e.lives} vida`);
   if (e.xp) parts.push(`+${e.xp} XP`);
   return parts.join(" · ") || "—";
 }
@@ -340,6 +389,9 @@ function itemText(i) {
   if (i.type === "course") return `+10% de salário para sempre · +${i.xp} XP`;
   if (i.type === "house") return `+${i.maxEnergy} de energia máxima · humor nunca abaixo de ${i.moodFloor}`;
   if (i.type === "vehicle") return `+${pct(i.pay)} de salário em cada turno`;
+  if (i.type === "formation") return `Leva você direto ao degrau de ${rankName(i.career, i.level)} (exige o degrau anterior)`;
+  if (i.type === "decor") return "Aparece dentro da sua casa · soneca melhor";
+  if (i.type === "care") return effectText(i);
   if (i.type === "frame") return "Moldura no seu avatar";
   if (i.type === "tag") return `Tag “${i.label}” junto ao seu nome`;
   if (i.type === "color") return "Seu nome aparece colorido";
@@ -347,9 +399,9 @@ function itemText(i) {
 }
 
 /* ---------------- lojas ---------------- */
-export function Shops({ wallet, onMsg }) {
+export function Shops({ wallet, onMsg, initialShop }) {
   const { user, profile } = useAuth();
-  const [shop, setShop] = useState(SHOPS[0].id);
+  const [shop, setShop] = useState(initialShop || SHOPS[0].id);
   const [busy, setBusy] = useState(false);
   const s = SHOPS.find((x) => x.id === shop);
   const disc = shopDiscount(wallet);
@@ -412,7 +464,7 @@ export function Shops({ wallet, onMsg }) {
           const on = have && wallet.equipped?.[item.type] === item.id;
           const lock = have ? "" : lockReason(item, wallet);
           const price = priceOf(item, wallet);
-          const consumable = ["food", "fun"].includes(item.type);
+          const consumable = ["food", "fun", "care"].includes(item.type);
           const poor = (wallet.balance || 0) < price && !(item.type === "house" || item.type === "vehicle");
           return (
             <div key={item.id} style={{ display: "contents" }}>
@@ -443,7 +495,7 @@ export function Shops({ wallet, onMsg }) {
                   ) : consumable ? (
                     <>
                       <button type="button" className="btn btn-cash" disabled={busy || poor} onClick={() => buy(item, true)}>
-                        {item.type === "food" ? "Comer" : "Ir"}
+                        {item.type === "food" ? "Comer" : item.type === "care" ? "Usar" : "Ir"}
                       </button>
                       <button type="button" className="btn btn-ghost" disabled={busy || poor} onClick={() => buy(item, false)} title="Guardar na mochila">
                         🎒
@@ -542,6 +594,7 @@ export function EcoRanking() {
   const list = useMemo(() => {
     const withP = data.filter((w) => hasPersona(w));
     if (mode === "level") return [...withP].sort((a, b) => (b.xp || 0) - (a.xp || 0));
+    if (mode === "fame") return [...withP].sort((a, b) => (b.fame || 0) - (a.fame || 0));
     if (mode === "social") return [...withP].sort((a, b) => (b.social || 0) - (a.social || 0));
     return [];
   }, [data, mode]);
@@ -551,6 +604,7 @@ export function EcoRanking() {
         {[
           ["money", "💰 Riqueza"],
           ["level", "⭐ Nível"],
+          ["fame", "🌟 Fama"],
           ["social", "🤝 Social"],
         ].map(([id, l]) => (
           <button type="button" key={id} className={mode === id ? "on" : ""} onClick={() => setMode(id)}>
@@ -567,16 +621,16 @@ export function EcoRanking() {
             return (
               <div key={w.id} className={"rank-row" + (w.id === user.uid ? " me" : "")}>
                 <span className="rank-pos">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}º`}</span>
-                {w.persona?.emoji ? <PersonaAvatar wallet={w} size="sm" /> : <Avatar src={w.photoURL} name={w.nickname} size={30} />}
+                <PersonaAvatar wallet={w} size="sm" />
                 <div className="rank-name">
                   <b>
                     <PersonaName wallet={w} /> <small className="muted">({w.nickname})</small>
                   </b>
                   <span>
-                    {CLASSES[w.persona.cls]?.icon} {CLASSES[w.persona.cls]?.name} · {t.icon} {t.name}
+                    {CLASSES[w.persona.cls]?.icon} {CLASSES[w.persona.cls]?.name} · {mode === "fame" ? `${fameTitle(w.fame).icon} ${fameTitle(w.fame).name}` : `${t.icon} ${t.name}`}
                   </span>
                 </div>
-                <b className="rank-bal">{mode === "level" ? `Nv ${levelInfo(w.xp).level}` : `${w.social || 0} pts`}</b>
+                <b className="rank-bal">{mode === "level" ? `Nv ${levelInfo(w.xp).level}` : mode === "fame" ? `🌟 ${w.fame || 0}` : `${w.social || 0} pts`}</b>
               </div>
             );
           })}

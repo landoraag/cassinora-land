@@ -48,12 +48,22 @@ export function AuthProvider({ children }) {
     setProfile((p) => ({ ...(p || {}), photoURL: value }));
   }
 
+  async function updateNickname(nick) {
+    const u = auth.currentUser;
+    const n = String(nick || "").trim().replace(/\s+/g, " ");
+    if (!u) return;
+    if (n.length < 2 || n.length > 24) throw new Error("O apelido precisa ter de 2 a 24 letras.");
+    await updateProfile(u, { displayName: n });
+    await setDoc(doc(db, "users", u.uid), { nickname: n, email: u.email }, { merge: true });
+    setProfile((p) => ({ ...(p || {}), nickname: n }));
+  }
+
   async function logout() {
     clearCollectionCache(); // desliga as listas guardadas antes de sair (evita erro de permissão)
     await signOut(auth);
   }
 
-  return <AuthContext.Provider value={{ user, profile, loading, login, register, logout, updatePhoto }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, profile, loading, login, register, logout, updatePhoto, updateNickname }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

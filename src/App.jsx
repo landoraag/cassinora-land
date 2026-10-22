@@ -7,6 +7,9 @@ import Lobby from "./pages/Lobby";
 import Mesas from "./pages/Mesas";
 import Economia from "./pages/Economia";
 import RankingPage from "./pages/Ranking";
+import Perfil from "./pages/Perfil";
+import Cidade from "./pages/Cidade";
+import Casa from "./pages/Casa";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -37,6 +40,9 @@ export default function App() {
         <Route path="mesas" element={<Mesas />} />
         <Route path="economia" element={<Economia />} />
         <Route path="ranking" element={<RankingPage />} />
+        <Route path="perfil" element={<Perfil />} />
+        <Route path="cidade" element={<Cidade />} />
+        <Route path="casa/:uid" element={<Casa />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

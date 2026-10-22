@@ -622,3 +622,52 @@ export function EconomyBar({ startOpen = null }) {
     </div>
   );
 }
+
+/* ---------------- um painel só (usado pela cidade: cada prédio abre o seu) ---------------- */
+export function EcoModal({ name, onClose, initialShop }) {
+  const { user, profile } = useAuth();
+  const wallet = useWallet();
+  const { data: walletsList } = useCollection("wallets");
+  const [cur, setCur] = useState(name);
+  const [msg, setMsg] = useState(null);
+  const wallets = useMemo(() => Object.fromEntries(walletsList.map((w) => [w.id, w])), [walletsList]);
+  const people = walletsList.filter((w) => w.id !== user.uid).map((w) => ({ id: w.id, nickname: w.nickname, photoURL: w.photoURL }));
+  const say = (text, bad) => {
+    setMsg({ text, bad });
+    setTimeout(() => setMsg(null), 3500);
+  };
+  const needPersona = !hasPersona(wallet) && ["work", "shops", "charity", "persona"].includes(cur);
+  const MODALS = {
+    bank: ["🏦 Banco", () => <Bank wallet={wallet} onMsg={say} />],
+    pay: ["💸 Pagar alguém", () => <Pay wallet={wallet} people={people} onMsg={say} />],
+    rob: ["🕵️ Roubar", () => <Rob wallet={wallet} people={people} wallets={wallets} onMsg={say} />],
+    loans: ["🤝 Empréstimos", () => <Loans people={people} onMsg={say} />],
+    rules: ["📜 Regras da economia", () => <Rules />],
+    ranking: ["🏆 Ranking", () => <EcoRanking />],
+    create: ["🧑 Criar persona", () => <PersonaForm wallet={wallet} onMsg={say} onDone={() => setCur("persona")} />],
+    edit: ["🎨 Editar boneco e persona", () => <PersonaForm wallet={wallet} onMsg={say} onDone={() => setCur("persona")} />],
+    persona: ["🧑 Ficha da persona", () => <PersonaSheet wallet={wallet} onMsg={say} onEdit={() => setCur("edit")} onShop={() => setCur("shops")} />],
+    work: ["💼 Centro de empregos", () => <WorkGame wallet={wallet} onFinished={(r) => announceLevelUp(user, profile, r.levelUp)} onClose={onClose} onNeedPersona={() => setCur("create")} />],
+    shops: ["🛍️ Lojas", () => <Shops wallet={wallet} onMsg={say} initialShop={initialShop} />],
+    charity: ["💝 Caridade", () => <Charity wallet={wallet} onMsg={say} />],
+  };
+  const key = needPersona ? "create" : cur;
+  const m = MODALS[key];
+  if (!m) return null;
+  return createPortal(
+    <div className="modal-backdrop casino-backdrop" onClick={onClose}>
+      <div className="casino-modal eco-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="casino-modal-head">
+          <h3>{m[0]}</h3>
+          <span className="casino-modal-bal">{wallet ? coins(wallet.balance) : ""}</span>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Fechar">
+            ✕
+          </button>
+        </header>
+        {msg && key !== "rules" && <div className={"eco-msg" + (msg.bad ? " bad" : "")}>{msg.text}</div>}
+        {wallet ? m[1]() : <p className="muted">Carregando…</p>}
+      </div>
+    </div>,
+    document.body
+  );
+}
