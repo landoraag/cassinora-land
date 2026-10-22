@@ -891,3 +891,16 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue-light)
 @media (prefers-reduced-motion: reduce) { .ro-rain i, .ro-doll, .ro-trophy { animation: none !important; } }
 .career-block { margin-top: 10px; }
 .de-opt.locked { opacity: .45; cursor: not-allowed; }
+
+/* truco: a mesa não encolhe e as cartas têm tamanhos próprios */
+.truco { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.truco > * { flex: none; }
+.truco-felt { flex: none; min-height: 270px; justify-content: space-between; }
+.truco-hand { flex-wrap: wrap; min-height: 88px; }
+.truco-hand .pcard { width: 58px; height: 82px; }
+.truco-opp .pcard .pc-suit, .truco-vira .pcard .pc-suit { font-size: 1.25rem; }
+.truco-opp .pcard .pc-corner, .truco-vira .pcard .pc-corner { font-size: .66rem; top: 3px; left: 5px; }
+.tt-slot .pcard { width: 46px; height: 66px; }
+.tt-slot .pc-suit { font-size: 1.5rem; } .tt-slot .pc-corner { font-size: .7rem; }
+.truco-vira small { margin-top: 3px; text-align: center; max-width: 80px; }
+.truco-msg { min-height: 1.2em; }

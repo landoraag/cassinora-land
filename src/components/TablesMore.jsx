@@ -516,7 +516,7 @@ function TurnClock({ t, me, turnAt, curUid, onSkip, busy }) {
   return (
     <div className="pvp-clock-row">
       <span>
-        {curUid === me.uid ? "Sua vez" : `Vez de ${nameOf(t, curUid)}`} · {left > 0 ? `${left}s` : "tempo esgotado"}
+        {curUid === me.uid ? "Sua vez" : `Vez de ${nameOf(t, curUid)}`}{curUid === me.uid ? (left > 0 ? ` · ${left}s` : "") : left > 0 ? ` · ${left}s` : " · tempo esgotado"}
       </span>
       {inside && curUid !== me.uid && left === 0 && (
         <button type="button" className="btn-link" disabled={busy} onClick={onSkip}>
