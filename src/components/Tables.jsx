@@ -8,9 +8,11 @@ import { CHICKEN_LEVELS, MINES_OPTIONS, TOWER_MODES, chickenMultiplier, coins, h
 import { PLINKO_RISKS } from "../lib/gamesPure";
 import {
   PVP_GAMES,
+  IDLE_CLOSE,
   TURN_TIMEOUT,
   bjAction,
   chickenAction,
+  closeIdleTable,
   crashEndsAt,
   crashFinalize,
   createTable,
@@ -179,6 +181,19 @@ export function CreateTable({ wallet, onDone, initialGame }) {
 function useTable(id) {
   const [t, setT] = useState(undefined);
   useEffect(() => onSnapshot(doc(db, "casinoTables", id), (s) => setT(s.exists() ? { id: s.id, ...s.data() } : null), () => setT(null)), [id]);
+  // mesa parada há 2 minutos fecha sozinha (as apostas voltam para todo mundo)
+  const st = t?.status;
+  const upd = t?.updatedAt;
+  useEffect(() => {
+    if (st !== "playing" || t?.game === "crash") return undefined;
+    const check = () => {
+      if (Date.now() - (upd || 0) >= IDLE_CLOSE) closeIdleTable(id).catch(() => {});
+    };
+    check();
+    const iv = setInterval(check, 10000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, st, upd]);
   return t;
 }
 
@@ -247,7 +262,7 @@ export function TableCard({ id }) {
             {tableSub(t) ? ` · ${tableSub(t)}` : ""}
           </span>
         </div>
-        <span className={"tc-status s-" + t.status}>{STATUS[t.status]}</span>
+        <span className={"tc-status s-" + t.status}>{t.closedIdle ? "Fechada por inatividade" : STATUS[t.status]}</span>
       </div>
 
       <div className="tc-players">

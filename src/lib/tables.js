@@ -101,6 +101,7 @@ export const MAX_HILO_STREAK = 12;
 export const CRASH_COUNTDOWN = 3000;
 export const clean = (o) => JSON.parse(JSON.stringify(o)); // o Firestore não aceita undefined
 export const TURN_TIMEOUT = 45000;
+export const IDLE_CLOSE = 120000; // mesa em jogo parada por 2 minutos: fecha e devolve as apostas
 
 const tableRef = (id) => doc(db, "casinoTables", id);
 const now = () => Date.now();
@@ -198,6 +199,19 @@ export async function leaveTable(id, uid) {
       for (const p of players) tx.update(walletRef(p.uid), { balance: increment(t.bet) });
       tx.update(tableRef(id), { status: "cancelled", players: t.players, updatedAt: now() });
     } else tx.update(tableRef(id), { players, updatedAt: now() });
+  });
+}
+
+// Fecha a mesa que ficou sem nenhuma jogada por IDLE_CLOSE e devolve a aposta de todos.
+// Qualquer um que esteja olhando a mesa dispara; a transação confere de novo, então só fecha uma vez.
+export async function closeIdleTable(id) {
+  return runTransaction(db, async (tx) => {
+    const t = (await tx.get(tableRef(id))).data();
+    if (!t || t.status !== "playing" || t.game === "crash") return false; // crash paga na hora, não dá para devolver
+    if (now() - (t.updatedAt || 0) < IDLE_CLOSE) return false;
+    for (const p of t.players) tx.update(walletRef(p.uid), { balance: increment(t.bet) });
+    tx.update(tableRef(id), { status: "cancelled", closedIdle: true, updatedAt: now() });
+    return true;
   });
 }
 
