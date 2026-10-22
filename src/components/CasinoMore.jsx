@@ -168,10 +168,11 @@ function Dice({ wallet, onError }) {
     }
     const result = rollDice();
     setSt({ phase: "roll" });
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 22; i++) {
       setShown(rollDice());
-      await sleep(70);
+      await sleep(60 + i * 12); // vai desacelerando até parar
     }
+    await sleep(250);
     setShown(result);
     const win = diceWins(result, chance, dir);
     const payout = win ? Math.floor(bet * mult) : 0;

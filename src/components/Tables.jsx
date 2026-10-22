@@ -23,7 +23,7 @@ import {
 } from "../lib/tables";
 import { BetPicker, PlayingCard, fmtX } from "./Casino";
 import { announceResult } from "../lib/resultBus";
-import { CrashTable, HiloTable, InstantTable, MinesTable, PickSelector, TowerTable, TrucoTable, UnoTable, pickLabel } from "./TablesMore";
+import { CrashTable, HiloTable, InstantTable, MinesTable, PickSelector, REVEAL_MS, RollingStage, TowerTable, TrucoTable, UnoTable, pickLabel } from "./TablesMore";
 import Avatar from "./Avatar";
 
 const useMe = () => {
@@ -206,6 +206,7 @@ export function TableCard({ id }) {
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState(false);
   const [pick, setPick] = useState(null);
+  const [revealing, setRevealing] = useState(false);
   const prev = useRef(null);
 
   // Quando a mesa começa, abre sozinho para quem está jogando.
@@ -214,9 +215,22 @@ export function TableCard({ id }) {
     const mine = t.players.some((p) => p.uid === me.uid);
     if (prev.current === "lobby" && t.status !== "lobby" && t.status !== "cancelled" && mine) setView(true);
     // fim da partida (só se a mesa estava rolando aqui): animação de quem ganhou e perdeu
-    if (mine && t.status === "done" && t.result && (prev.current === "lobby" || prev.current === "playing")) {
-      const net = (t.result.payouts?.[me.uid] || 0) - t.bet;
-      announceResult({ key: "t-" + t.id, net, game: t.game, text: t.result.text, table: true });
+    const instant = PVP_GAMES[t.game]?.kind === "instant" && t.game !== "coinflip";
+    const justEnded = t.status === "done" && t.result && (prev.current === "lobby" || prev.current === "playing");
+    if (justEnded) {
+      const fire = () => {
+        if (!mine) return;
+        const net = (t.result.payouts?.[me.uid] || 0) - t.bet;
+        announceResult({ key: "t-" + t.id, net, game: t.game, text: t.result.text, table: true });
+      };
+      if (instant) {
+        // o resultado já veio pronto: roda uma animação antes de mostrar quem ganhou
+        setRevealing(true);
+        setTimeout(() => {
+          setRevealing(false);
+          fire();
+        }, REVEAL_MS);
+      } else fire();
     }
     prev.current = t.status;
   }, [t?.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -279,7 +293,8 @@ export function TableCard({ id }) {
       </div>
       {invitedOnly && t.status === "lobby" && <div className="tc-note">🎯 Só para convidados</div>}
       {t.game === "coinflip" && t.status === "lobby" && <div className="tc-note">{t.hostName} fica com {t.side}; quem entrar fica com {t.side === "cara" ? "coroa" : "cara"}</div>}
-      {t.result && (
+      {t.result && revealing && <div className="tc-result"><b>🎲 Rolando…</b></div>}
+      {t.result && !revealing && (
         <div className="tc-result">
           <b>{t.result.text}</b>
           {inside && myPay != null && <span className="tc-mine">{myPay > t.bet ? `Você ganhou ${coins(myPay - t.bet)}` : "Sua aposta voltou"}</span>}
@@ -319,13 +334,13 @@ export function TableCard({ id }) {
         )}
       </div>
 
-      {view && <TableModal t={t} me={me} onClose={() => setView(false)} />}
+      {view && <TableModal t={t} me={me} revealing={revealing} onClose={() => setView(false)} />}
     </div>
   );
 }
 
 /* ---------------- a mesa aberta ---------------- */
-function TableModal({ t, me, onClose }) {
+function TableModal({ t, me, onClose, revealing = false }) {
   const g = PVP_GAMES[t.game];
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -364,8 +379,8 @@ function TableModal({ t, me, onClose }) {
         {t.game === "crash" && <CrashTable {...props} />}
         {t.game === "truco" && <TrucoTable {...props} />}
         {t.game === "uno" && <UnoTable {...props} />}
-        {g.kind === "instant" && t.game !== "coinflip" && <InstantTable t={t} me={me} />}
-        {t.result && (() => {
+        {g.kind === "instant" && t.game !== "coinflip" && (revealing ? <RollingStage game={t.game} /> : <InstantTable t={t} me={me} />)}
+        {t.result && !revealing && (() => {
           const inside = t.players.some((p) => p.uid === me.uid);
           const got = t.result.payouts?.[me.uid];
           const net = inside ? (got || 0) - t.bet : null;

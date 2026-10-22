@@ -220,6 +220,34 @@ function BaccaratView({ t, me }) {
   );
 }
 
+/* suspense: mesas "instantâneas" já nascem com o resultado; aqui mostramos o jogo rolando antes de revelar */
+export const REVEAL_MS = 3000;
+const FX = {
+  dice: ["🎲", "🔢", "🎯"], slots: ["🍒", "🍋", "🔔", "💎", "7️⃣", "⭐"], scratch: ["🎟️", "🪙", "✨", "🔍"], plinko: ["⚪", "🔵", "🟣", "🟡"],
+  poker: ["♠️", "♥️", "♦️", "♣️", "🃏"], baccarat: ["♠️", "♥️", "♦️", "♣️", "🃏"], keno: ["1️⃣", "3️⃣", "5️⃣", "7️⃣", "9️⃣", "🔟"], bingo: ["🅱️", "🅸", "🅽", "🅶", "🅾️"], wheel: ["🎡", "🔴", "⚫", "🟢"],
+};
+export function RollingStage({ game, ms = REVEAL_MS }) {
+  const faces = FX[game] || ["🎲"];
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => n + 1), 110);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="roll-stage">
+      <div className="roll-faces">
+        {[0, 1, 2].map((k) => (
+          <span key={k}>{faces[(i + k * 2) % faces.length]}</span>
+        ))}
+      </div>
+      <b>Rolando…</b>
+      <div className="roll-bar">
+        <i style={{ "--ms": ms + "ms" }} />
+      </div>
+    </div>
+  );
+}
+
 export function InstantTable({ t, me }) {
   const s = t.state;
   if (!s) return null;
