@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Regras do Cassinora Land.
+// Economia/cassino (moedas de mentira): todo mundo logado vê as carteiras (ranking). Cada um cria só
+// a própria; as alterações podem vir de outra pessoa (pagar, roubar, empréstimo, prêmio de mesa),
+// mas nenhum saldo pode ficar negativo. Apagar carteira: só administrador (hoje ninguém; para dar
+// o poder a alguém, ponha o e-mail na lista de isEconomyAdmin e em ADMIN_EMAILS de src/lib/casino.js).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function myEmail() {
+      return request.auth.token.email != null ? request.auth.token.email.lower() : "";
+    }
+    function isEconomyAdmin() {
+      return myEmail() in [];
+    }
+    function validWallet() {
+      return request.resource.data.balance is number && request.resource.data.balance >= 0
+        && (!("bank" in request.resource.data) || (request.resource.data.bank is number && request.resource.data.bank >= 0));
+    }
+
+    match /wallets/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == uid && validWallet();
+      allow update: if signedIn() && validWallet();
+      allow delete: if signedIn() && isEconomyAdmin();
+    }
+
+    // Perfil: todo mundo vê (lista de convite das mesas), cada um altera só o seu.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Feed "Ao vivo": qualquer logado lê e publica; ninguém edita nem apaga.
+    match /gameFeed/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Mesas, empréstimos, caridade e marcas (meta).
+    match /{collection}/{document=**} {
+      allow read, write: if signedIn() && collection in ["casinoTables", "loans", "charity", "meta"];
+    }
+  }
+}

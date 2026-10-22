@@ -1,0 +1,23 @@
+{
+  "name": "cassinora-land",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cassinora Land: jogos de cassino e economia com moedas de mentira.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "deploy": "vite build && firebase deploy --only hosting,firestore:rules,firestore:indexes"
+  },
+  "dependencies": {
+    "firebase": "^10.14.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.6"
+  }
+}
